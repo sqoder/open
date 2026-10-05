@@ -31,6 +31,7 @@ public struct GhosttyUserConfig: Sendable {
     public var background: String? = "30333E"
     public var foreground: String? = nil
     public var workingDirectory: String? = nil
+    public var restoreLastWorkingDirectory: Bool = false
 
     public static func load() -> (config: GhosttyUserConfig, filePath: String?) {
         let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
@@ -98,6 +99,8 @@ public struct GhosttyUserConfig: Sendable {
                 cfg.shellIntegration = val
             case "working-directory", "initial-working-directory":
                 cfg.workingDirectory = val
+            case "restore-last-working-directory":
+                cfg.restoreLastWorkingDirectory = (val.lowercased() == "true")
             case "background":
                 cfg.background = val
             case "foreground":
@@ -251,11 +254,11 @@ public enum DarwinProcessHelper {
         for child in children.reversed() {
             let grandChildren = getChildPids(for: child)
             for grandChild in grandChildren.reversed() {
-                if let cwd = getCwd(for: grandChild), FileManager.default.fileExists(atPath: cwd) {
+                if let cwd = getCwd(for: grandChild), !cwd.isEmpty {
                     return cwd
                 }
             }
-            if let cwd = getCwd(for: child), FileManager.default.fileExists(atPath: cwd) {
+            if let cwd = getCwd(for: child), !cwd.isEmpty {
                 return cwd
             }
         }
@@ -272,16 +275,14 @@ public enum SuqiDirectoryManager {
     private static let cacheFilePath = NSString(string: "~/.cache/suqi/last_working_directory").expandingTildeInPath
 
     /// Resolves the preferred working directory in order:
-    /// 1. Explicit directory passed by caller (if valid)
+    /// 1. Explicit directory passed by caller (e.g. new tab / split inheriting active cwd)
     /// 2. Ghostty / Suqi config `working-directory` or `initial-working-directory` (if valid)
-    /// 3. Disk cache file ~/.cache/suqi/last_working_directory (if valid)
-    /// 4. Last saved working directory in UserDefaults (if valid)
-    /// 5. User's Home directory (`NSHomeDirectory()`)
+    /// 3. Disk cache file / UserDefaults (only if `restore-last-working-directory = true` in config)
+    /// 4. User's Home directory (`NSHomeDirectory()`)
     public static func resolvedInitialWorkingDirectory(explicit: String? = nil) -> String {
         if let explicit, !explicit.isEmpty {
             let expanded = NSString(string: explicit).expandingTildeInPath
-            var isDir: ObjCBool = false
-            if FileManager.default.fileExists(atPath: expanded, isDirectory: &isDir), isDir.boolValue {
+            if !expanded.isEmpty {
                 return expanded
             }
         }
@@ -289,30 +290,30 @@ public enum SuqiDirectoryManager {
         let (config, _) = GhosttyUserConfig.load()
         if let configDir = config.workingDirectory, !configDir.isEmpty {
             let expanded = NSString(string: configDir).expandingTildeInPath
-            var isDir: ObjCBool = false
-            if FileManager.default.fileExists(atPath: expanded, isDirectory: &isDir), isDir.boolValue {
+            if !expanded.isEmpty {
                 return expanded
             }
         }
 
-        // Check disk cache file
-        if let fileContent = try? String(contentsOfFile: cacheFilePath, encoding: .utf8) {
-            let trimmed = fileContent.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-                let expanded = NSString(string: trimmed).expandingTildeInPath
-                var isDir: ObjCBool = false
-                if FileManager.default.fileExists(atPath: expanded, isDirectory: &isDir), isDir.boolValue {
-                    return expanded
+        // Only restore previous working directory across cold starts if explicitly enabled in user config
+        if config.restoreLastWorkingDirectory {
+            // Check disk cache file
+            if let fileContent = try? String(contentsOfFile: cacheFilePath, encoding: .utf8) {
+                let trimmed = fileContent.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    let expanded = NSString(string: trimmed).expandingTildeInPath
+                    if !expanded.isEmpty {
+                        return expanded
+                    }
                 }
             }
-        }
 
-        // Check UserDefaults
-        if let saved = UserDefaults.standard.string(forKey: lastDirKey), !saved.isEmpty {
-            let expanded = NSString(string: saved).expandingTildeInPath
-            var isDir: ObjCBool = false
-            if FileManager.default.fileExists(atPath: expanded, isDirectory: &isDir), isDir.boolValue {
-                return expanded
+            // Check UserDefaults
+            if let saved = UserDefaults.standard.string(forKey: lastDirKey), !saved.isEmpty {
+                let expanded = NSString(string: saved).expandingTildeInPath
+                if !expanded.isEmpty {
+                    return expanded
+                }
             }
         }
 

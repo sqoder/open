@@ -19,6 +19,7 @@ public struct SettingsView: View {
     @State private var windowPaddingY: Int
     @State private var cursorStyle: String
     @State private var cursorBlink: Bool
+    @State private var restoreLastWorkingDirectory: Bool
     @State private var isAccessibilityTrusted: Bool = QuickTerminalController.isAccessibilityTrusted
 
     @State private var showingThemePicker: Bool = false
@@ -76,6 +77,7 @@ public struct SettingsView: View {
         _windowPaddingY = State(initialValue: cfg.windowPaddingY)
         _cursorStyle = State(initialValue: cfg.cursorStyle)
         _cursorBlink = State(initialValue: cfg.cursorBlink)
+        _restoreLastWorkingDirectory = State(initialValue: cfg.restoreLastWorkingDirectory)
     }
 
     private var allThemes: [String] {
@@ -234,6 +236,16 @@ public struct SettingsView: View {
                     }
             }
 
+            Section("Startup & Working Directory") {
+                Toggle("Restore Last Working Directory", isOn: $restoreLastWorkingDirectory)
+                    .onChange(of: restoreLastWorkingDirectory) { _, newValue in
+                        GhosttyUserConfig.saveValues(["restore-last-working-directory": newValue ? "true" : "false"])
+                    }
+                Text("When disabled, new windows open in your home directory (~), avoiding unwanted folder authorization popups on launch.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Quick Terminal & Global Hotkey (⌃`)") {
                 HStack {
                     Text("Accessibility Permission")
@@ -255,9 +267,28 @@ public struct SettingsView: View {
                     }
                 }
             }
+
+            Section("Privacy & Permissions") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Full Disk Access")
+                            .font(.body)
+                        Text("Recommended for terminal emulators to access Desktop, Downloads & Documents without repeated macOS system permission prompts.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 16)
+                    Button("Configure...") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 500)
+        .frame(width: 460, height: 560)
         .navigationTitle("Settings")
     }
 }

@@ -34,5 +34,13 @@
     <false/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>suqi 需要访问桌面文件夹以在终端中执行相关命令与文件操作。</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>suqi 需要访问文稿文件夹以在终端中执行相关命令与文件操作。</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>suqi 需要访问下载文件夹以在终端中执行相关命令与文件操作。</string>
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>suqi 终端需要执行具有更高权限的管理命令。</string>
 </dict>
 </plist>

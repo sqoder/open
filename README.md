@@ -71,19 +71,24 @@ copy-on-select = clipboard
 - Xcode 15.0+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 
 ```bash
-# Clone & build
+# Clone repository
 git clone https://github.com/sqoder/open.git suqi
 cd suqi
 git checkout suqi
 
-# Generate project and build Release
-xcodegen generate
-xcodebuild -project suqi.xcodeproj -scheme suqi -configuration Release -destination 'platform=macOS' build
-
-# Install to /Applications
-cp -R ~/Library/Developer/Xcode/DerivedData/suqi-*/Build/Products/Release/suqi.app /Applications/
+# Build, sign with local developer certificate, and install to /Applications
+./scripts/install.sh
 ```
 
+Or manually:
+```bash
+xcodegen generate
+xcodebuild -project suqi.xcodeproj -scheme suqi -configuration Release -destination 'platform=macOS' build
+cp -R ~/Library/Developer/Xcode/DerivedData/suqi-*/Build/Products/Release/suqi.app /Applications/
+codesign -s - --force --deep /Applications/suqi.app
+```
+
+> **Tip**: Like iTerm2, Ghostty, or Terminal.app, grant **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access → `suqi`) to execute shell commands across Desktop, Downloads, and Documents without repeated macOS permission prompts.
 ---
 
 ## 📄 License

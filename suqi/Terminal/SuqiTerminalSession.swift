@@ -177,11 +177,10 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
     }
 
     public var fullDirectory: String {
-        if let cwd = state.workingDirectory, !cwd.isEmpty, FileManager.default.fileExists(atPath: cwd) {
+        if let cwd = state.workingDirectory, !cwd.isEmpty {
             return cwd
         }
-        if let childCwd = DarwinProcessHelper.findLatestChildCwd(),
-           FileManager.default.fileExists(atPath: childCwd) {
+        if let childCwd = DarwinProcessHelper.findLatestChildCwd(), !childCwd.isEmpty {
             return childCwd
         }
         return initialWorkingDirectory
@@ -329,9 +328,12 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
             terminalConfiguration: config
         )
 
-        let resolvedDir = FileManager.default.fileExists(atPath: workingDirectory)
-            ? workingDirectory
-            : NSHomeDirectory()
+        let resolvedDir: String = {
+            if workingDirectory.isEmpty || workingDirectory == "~" {
+                return NSHomeDirectory()
+            }
+            return NSString(string: workingDirectory).expandingTildeInPath
+        }()
 
         viewState.configuration = TerminalSurfaceOptions(
             backend: .exec,
