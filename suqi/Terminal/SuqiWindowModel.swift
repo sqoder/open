@@ -358,8 +358,25 @@ public final class SuqiWindowModel: ObservableObject {
         }
     }
 
-    /// Sets keyboard focus (First Responder) to the active terminal view
+    /// Suspends background CWD polling for inactive tabs and resumes for the active tab to conserve CPU and energy
+    public func synchronizeSessionTimers() {
+        guard let currentTab = activeTab else { return }
+        for tab in tabs {
+            if tab.id == currentTab.id {
+                for session in tab.allSessions {
+                    session.resumeCwdMonitor(forceUpdate: true)
+                }
+            } else {
+                for session in tab.allSessions {
+                    session.pauseCwdMonitor()
+                }
+            }
+        }
+    }
+
+    /// Sets keyboard focus (First Responder) to the active terminal view and synchronizes timers
     public func focusActiveSession() {
+        synchronizeSessionTimers()
         DispatchQueue.main.async { [weak self] in
             guard let session = self?.activeSession else { return }
             session.terminalView.window?.makeFirstResponder(session.terminalView)
@@ -682,6 +699,7 @@ public final class SuqiWindowModel: ObservableObject {
     public func pauseBackgroundRendering() {
         for session in sessions {
             _ = session.state.surface?.performBindingAction("pause")
+            session.pauseCwdMonitor()
         }
     }
 
@@ -689,6 +707,7 @@ public final class SuqiWindowModel: ObservableObject {
         for session in sessions {
             _ = session.state.surface?.performBindingAction("resume")
         }
+        synchronizeSessionTimers()
     }
 
     /// Toggles window stay-on-top pinned status (.floating window level)

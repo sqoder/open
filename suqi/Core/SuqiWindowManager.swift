@@ -146,4 +146,38 @@ public final class SuqiWindowManager: ObservableObject {
             controller.updateThemeBackground()
         }
     }
+
+    private var settingsWindow: NSWindow?
+
+    /// Opens or brings to front the native Settings window
+    public func openSettingsWindow() {
+        if let win = settingsWindow, win.isVisible {
+            win.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        // Try standard macOS SwiftUI showSettingsWindow selector
+        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+            return
+        }
+
+        // Fallback: Create dedicated native window hosting SettingsView
+        let settingsView = SettingsView()
+        let hostingView = NSHostingView(rootView: settingsView)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 580),
+            styleMask: [.titled, .closable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Settings"
+        window.contentView = hostingView
+        window.center()
+        window.isReleasedWhenClosed = false
+        self.settingsWindow = window
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
 }

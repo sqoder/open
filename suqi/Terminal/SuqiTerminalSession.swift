@@ -101,11 +101,30 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
             .store(in: &cancellables)
     }
 
-    private func startCwdMonitor() {
+    public private(set) var isCwdMonitorActive: Bool = false
+
+    /// Suspends background CWD polling timer to eliminate idle CPU wakeups when tab or window is inactive
+    public func pauseCwdMonitor() {
         cwdMonitorTimer?.invalidate()
+        cwdMonitorTimer = nil
+        isCwdMonitorActive = false
+    }
+
+    /// Resumes CWD polling timer and performs an immediate directory synchronization
+    public func resumeCwdMonitor(forceUpdate: Bool = true) {
+        if forceUpdate {
+            let current = self.fullDirectory
+            if current != self.lastKnownDirectory {
+                self.lastKnownDirectory = current
+                SuqiDirectoryManager.saveLastWorkingDirectory(current)
+                self.objectWillChange.send()
+            }
+        }
+        guard cwdMonitorTimer == nil else { return }
+        isCwdMonitorActive = true
         cwdMonitorTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.isCwdMonitorActive else { return }
                 let current = self.fullDirectory
                 if current != self.lastKnownDirectory {
                     self.lastKnownDirectory = current
@@ -114,6 +133,10 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
                 }
             }
         }
+    }
+
+    private func startCwdMonitor() {
+        resumeCwdMonitor(forceUpdate: false)
     }
 
     public var title: String {
@@ -126,20 +149,30 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
         return "zsh"
     }
 
-    /// Detects active foreground process running in this session (e.g. vim, nvim, ssh, python, cargo)
+    /// Detects active foreground process running in this session (e.g. vim, nvim, ssh, python, cargo, agy, claude, codex)
     public var activeProcessName: String? {
         let raw = state.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !raw.isEmpty else { return nil }
         let defaultShells: Set<String> = [
             "zsh", "bash", "fish", "sh", "tcsh", "csh", "ksh", "login",
             "-zsh", "-bash", "-fish", "suqi"
         ]
-        let firstToken = raw.components(separatedBy: .whitespaces).first?.lowercased() ?? ""
-        let cleanToken = firstToken.hasPrefix("-") ? String(firstToken.dropFirst()) : firstToken
-        if defaultShells.contains(cleanToken) {
-            return nil
+        if !raw.isEmpty {
+            let firstToken = raw.components(separatedBy: .whitespaces).first?.lowercased() ?? ""
+            let cleanToken = firstToken.hasPrefix("-") ? String(firstToken.dropFirst()) : firstToken
+            if !defaultShells.contains(cleanToken) {
+                return raw
+            }
         }
-        return raw
+
+        // Fallback: query kernel process table for child processes
+        if let kernelProc = DarwinProcessHelper.findLatestChildProcessName() {
+            let cleanKernel = kernelProc.lowercased()
+            if !defaultShells.contains(cleanKernel) {
+                return kernelProc
+            }
+        }
+
+        return nil
     }
 
     /// Indicates whether a non-shell foreground process is running

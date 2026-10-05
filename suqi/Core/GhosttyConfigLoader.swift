@@ -264,6 +264,33 @@ public enum DarwinProcessHelper {
         }
         return nil
     }
+
+    public static func getProcessName(for pid: pid_t) -> String? {
+        guard pid > 0 else { return nil }
+        var buf = [CChar](repeating: 0, count: 256)
+        let ret = proc_name(pid, &buf, 256)
+        if ret > 0 {
+            let name = String(cString: buf).trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.isEmpty ? nil : name
+        }
+        return nil
+    }
+
+    public static func findLatestChildProcessName(for parentPid: pid_t = getpid()) -> String? {
+        let children = getChildPids(for: parentPid)
+        for child in children.reversed() {
+            let grandChildren = getChildPids(for: child)
+            for grandChild in grandChildren.reversed() {
+                if let name = getProcessName(for: grandChild), !name.isEmpty {
+                    return name
+                }
+            }
+            if let name = getProcessName(for: child), !name.isEmpty {
+                return name
+            }
+        }
+        return nil
+    }
 }
 #endif
 

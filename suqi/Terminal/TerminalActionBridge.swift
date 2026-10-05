@@ -42,6 +42,20 @@ public enum TerminalActionBridge {
         return false
     }
 
+    /// Detects whether the active terminal session is running a multimodal AI CLI tool
+    public static func isAiCliActive(in session: SuqiTerminalSession?) -> Bool {
+        guard let session else { return false }
+        let aiToolKeywords: Set<String> = [
+            "agy", "claude", "codex", "opencode", "aider", "gemini", "chatgpt", "llm", "sgpt"
+        ]
+        if let proc = session.activeProcessName?.lowercased() {
+            for kw in aiToolKeywords {
+                if proc.contains(kw) { return true }
+            }
+        }
+        return false
+    }
+
     /// Checks whether the pasteboard contains image data (in-memory or image file URLs)
     public static func pasteboardContainsImage(_ pb: NSPasteboard) -> Bool {
         // 1. Raw image objects in memory
@@ -133,10 +147,17 @@ public enum TerminalActionBridge {
             }
         }
 
-        // 2. Multimodal AI CLI flow: any image (in-memory screenshots like QQ, or tool screenshots like Glint, or Finder images)
+        // 2. Multimodal AI CLI flow vs. Standard shell image paste:
         if pasteboardContainsImage(pb) {
-            if let terminalView {
+            let isAi = isAiCliActive(in: model.activeSession)
+            if isAi, let terminalView {
+                // In an AI CLI session (agy, claude, codex, etc.): synthesize Control+V to stream raw image
                 terminalView.triggerImagePasteShortcut()
+                return
+            } else if let savedPath = savePasteboardImageToDisk(pb) {
+                // In standard terminal (zsh, bash, python, vim): auto-save to disk and paste escaped path to prevent ^V garbage
+                let escaped = savedPath.replacingOccurrences(of: " ", with: "\\ ") + " "
+                model.activeSession?.send(escaped)
                 return
             }
         }
@@ -406,8 +427,14 @@ public enum TerminalActionBridge {
             }
         }
 
-        // 20. ⌘, (Open configuration file)
+        // 20. ⌘, (Open Native Settings View)
         if flags == .command && event.charactersIgnoringModifiers == "," {
+            SuqiWindowManager.shared.openSettingsWindow()
+            return nil
+        }
+
+        // 20b. ⌥⌘, (Open configuration file in text editor)
+        if flags == [.command, .option] && event.charactersIgnoringModifiers == "," {
             let (_, path) = GhosttyUserConfig.load()
             let target = path ?? NSString(string: "~/.config/ghostty/config").expandingTildeInPath
             NSWorkspace.shared.open(URL(fileURLWithPath: target))

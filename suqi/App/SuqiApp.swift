@@ -177,13 +177,18 @@ struct SuqiApp: App {
 
                 Divider()
 
+                Button("Settings...") {
+                    SuqiWindowManager.shared.openSettingsWindow()
+                }
+                .keyboardShortcut(",", modifiers: .command)
+
                 Button("Open Configuration File") {
                     let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
                     let suqiPath = NSString(string: "~/.config/suqi/config").expandingTildeInPath
                     let target = FileManager.default.fileExists(atPath: suqiPath) ? suqiPath : ghosttyPath
                     NSWorkspace.shared.open(URL(fileURLWithPath: target))
                 }
-                .keyboardShortcut(",", modifiers: .command)
+                .keyboardShortcut(",", modifiers: [.command, .option])
             }
         }
     }
