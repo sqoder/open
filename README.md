@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <b>A minimalist, ultra-fast macOS terminal powered by Ghostty's Metal GPU engine.</b><br>
+  <b>A minimalist, ultra-fast macOS terminal powered by Metal GPU hardware acceleration.</b><br>
   Designed for modern developers and AI CLI workflows with seamless <code>⌘V</code> multimodal image pasting and drag-and-drop.
 </p>
 
@@ -13,13 +13,13 @@
 
 ## ⚡ Highlights
 
-- **Ghostty Metal Engine**: 120 FPS rendering, sub-millisecond input latency, and full 24-bit TrueColor/kitty graphics support.
+- **Metal GPU Engine**: 120 FPS rendering, sub-millisecond input latency, and full 24-bit TrueColor/kitty graphics support.
 - **Multimodal AI CLI Pasting (`⌘V`)**: Bridges screenshots and image files directly into terminal input streams for tools like **`agy`**, **`codex`**, and **`claude`**.
 - **Native Drag & Drop**: Drag files, folders, or plain text directly into any terminal surface with automatic path escaping.
 - **Floating Pin & Clean Chrome**: Integrated pin-on-top toggle and distraction-free, borderless window frame.
 - **Multi-Tab & Split Panes**: Vertical (`⌘D`), horizontal (`⇧⌘D`), spatial navigation (`⌃⌘H/J/K/L`), zoom (`⇧⌘↩`), and equal distribution (`⌃⌘=`).
 - **Quick Dropdown Scratchpad (`⌃\``)**: Global hotkey toggle for instant terminal access from any screen.
-- **Ghostty Config & Hot-Reload (`⇧⌘,`)**: Native compatibility with `~/.config/suqi/config` and `~/.config/ghostty/config`.
+- **Declarative Config & Hot-Reload (`⇧⌘,`)**: Native support for `~/.config/suqi/config` with live hot reload.
 
 ---
 
@@ -42,7 +42,7 @@
 
 ## ⚙️ Configuration
 
-Suqi shares Ghostty's declarative configuration format. Create `~/.config/suqi/config`:
+Suqi uses a declarative configuration format. Create `~/.config/suqi/config`:
 
 ```ini
 theme = Catppuccin Mocha
@@ -72,7 +72,7 @@ copy-on-select = clipboard
 
 ```bash
 # Clone repository
-git clone https://github.com/sqoder/open.git suqi
+git clone https://github.com/sqoder/glint.git suqi
 cd suqi
 git checkout suqi
 
@@ -88,7 +88,7 @@ cp -R ~/Library/Developer/Xcode/DerivedData/suqi-*/Build/Products/Release/suqi.a
 codesign -s - --force --deep /Applications/suqi.app
 ```
 
-> **Tip**: Like iTerm2, Ghostty, or Terminal.app, grant **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access → `suqi`) to execute shell commands across Desktop, Downloads, and Documents without repeated macOS permission prompts.
+> **Tip**: Like iTerm2 or Terminal.app, grant **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access → `suqi`) to execute shell commands across Desktop, Downloads, and Documents without repeated macOS permission prompts.
 ---
 
 ## 📄 License

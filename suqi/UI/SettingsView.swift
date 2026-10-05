@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import GhosttyTheme
 
 public struct SettingsView: View {
     @State private var themeName: String
@@ -66,7 +65,7 @@ public struct SettingsView: View {
     }
 
     public init() {
-        let (cfg, _) = GhosttyUserConfig.load()
+        let (cfg, _) = SuqiUserConfig.load()
         _themeName = State(initialValue: cfg.themeName)
         _backgroundOpacity = State(initialValue: cfg.backgroundOpacity)
         _backgroundBlur = State(initialValue: Double(cfg.backgroundBlur))
@@ -106,7 +105,7 @@ public struct SettingsView: View {
                         }
                     }
                     .onChange(of: themeName) { _, newTheme in
-                        GhosttyUserConfig.saveValues(["theme": newTheme])
+                        SuqiUserConfig.saveValues(["theme": newTheme])
                         SuqiWindowManager.shared.reloadAllWindows()
                     }
 
@@ -121,7 +120,7 @@ public struct SettingsView: View {
                         isPresented: $showingThemePicker,
                         selectedTheme: $themeName,
                         onSelect: { newTheme in
-                            GhosttyUserConfig.saveValues(["theme": newTheme])
+                            SuqiUserConfig.saveValues(["theme": newTheme])
                             SuqiWindowManager.shared.reloadAllWindows()
                         }
                     )
@@ -135,7 +134,7 @@ public struct SettingsView: View {
                     Text("100%")
                 }
                 .onChange(of: backgroundOpacity) { _, newOpacity in
-                    GhosttyUserConfig.saveValues(["background-opacity": String(format: "%.2f", newOpacity)])
+                    SuqiUserConfig.saveValues(["background-opacity": String(format: "%.2f", newOpacity)])
                     SuqiWindowManager.shared.updateAllThemeBackgrounds()
                 }
 
@@ -147,7 +146,7 @@ public struct SettingsView: View {
                     Text("50")
                 }
                 .onChange(of: backgroundBlur) { _, newBlur in
-                    GhosttyUserConfig.saveValues(["background-blur": "\(Int(newBlur))"])
+                    SuqiUserConfig.saveValues(["background-blur": "\(Int(newBlur))"])
                     SuqiWindowManager.shared.updateAllThemeBackgrounds()
                 }
             }
@@ -159,7 +158,7 @@ public struct SettingsView: View {
                     }
                 }
                 .onChange(of: fontFamily) { _, newFont in
-                    GhosttyUserConfig.saveValues(["font-family": newFont])
+                    SuqiUserConfig.saveValues(["font-family": newFont])
                     SuqiWindowManager.shared.reloadAllWindows()
                 }
 
@@ -171,7 +170,7 @@ public struct SettingsView: View {
                         .foregroundStyle(.secondary)
                     Stepper("", value: $fontSize, in: 9...28, step: 1)
                         .onChange(of: fontSize) { _, newSize in
-                            GhosttyUserConfig.saveValues(["font-size": String(Int(newSize))])
+                            SuqiUserConfig.saveValues(["font-size": String(Int(newSize))])
                             SuqiWindowManager.shared.reloadAllWindows()
                         }
                 }
@@ -184,7 +183,7 @@ public struct SettingsView: View {
                         .foregroundStyle(.secondary)
                     Stepper("", value: $adjustCellHeight, in: -4...12, step: 1)
                         .onChange(of: adjustCellHeight) { _, newAdj in
-                            GhosttyUserConfig.saveValues(["adjust-cell-height": "\(newAdj)"])
+                            SuqiUserConfig.saveValues(["adjust-cell-height": "\(newAdj)"])
                             SuqiWindowManager.shared.reloadAllWindows()
                         }
                 }
@@ -199,7 +198,7 @@ public struct SettingsView: View {
                         .foregroundStyle(.secondary)
                     Stepper("", value: $windowPaddingX, in: 0...36, step: 2)
                         .onChange(of: windowPaddingX) { _, newPad in
-                            GhosttyUserConfig.saveValues(["window-padding-x": "\(newPad)"])
+                            SuqiUserConfig.saveValues(["window-padding-x": "\(newPad)"])
                             SuqiWindowManager.shared.reloadAllWindows()
                         }
                 }
@@ -212,7 +211,7 @@ public struct SettingsView: View {
                         .foregroundStyle(.secondary)
                     Stepper("", value: $windowPaddingY, in: 0...36, step: 2)
                         .onChange(of: windowPaddingY) { _, newPad in
-                            GhosttyUserConfig.saveValues(["window-padding-y": "\(newPad)"])
+                            SuqiUserConfig.saveValues(["window-padding-y": "\(newPad)"])
                             SuqiWindowManager.shared.reloadAllWindows()
                         }
                 }
@@ -225,13 +224,13 @@ public struct SettingsView: View {
                     Text("Underline").tag("underline")
                 }
                 .onChange(of: cursorStyle) { _, newStyle in
-                    GhosttyUserConfig.saveValues(["cursor-style": newStyle])
+                    SuqiUserConfig.saveValues(["cursor-style": newStyle])
                     SuqiWindowManager.shared.reloadAllWindows()
                 }
 
                 Toggle("Cursor Blink", isOn: $cursorBlink)
                     .onChange(of: cursorBlink) { _, newBlink in
-                        GhosttyUserConfig.saveValues(["cursor-style-blink": newBlink ? "true" : "false"])
+                        SuqiUserConfig.saveValues(["cursor-style-blink": newBlink ? "true" : "false"])
                         SuqiWindowManager.shared.reloadAllWindows()
                     }
             }
@@ -239,7 +238,7 @@ public struct SettingsView: View {
             Section("Startup & Working Directory") {
                 Toggle("Restore Last Working Directory", isOn: $restoreLastWorkingDirectory)
                     .onChange(of: restoreLastWorkingDirectory) { _, newValue in
-                        GhosttyUserConfig.saveValues(["restore-last-working-directory": newValue ? "true" : "false"])
+                        SuqiUserConfig.saveValues(["restore-last-working-directory": newValue ? "true" : "false"])
                     }
                 Text("When disabled, new windows open in your home directory (~), avoiding unwanted folder authorization popups on launch.")
                     .font(.caption)
@@ -302,11 +301,11 @@ struct ThemeSearchSheet: View {
 
     @State private var searchQuery: String = ""
 
-    private var filteredThemes: [GhosttyThemeDefinition] {
+    private var filteredThemes: [SuqiThemeDefinition] {
         if searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
-            return GhosttyThemeCatalog.allThemes
+            return SuqiThemeCatalog.allThemes
         }
-        return GhosttyThemeCatalog.search(searchQuery)
+        return SuqiThemeCatalog.search(searchQuery)
     }
 
     var body: some View {
@@ -315,7 +314,7 @@ struct ThemeSearchSheet: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Search 300+ Ghostty themes...", text: $searchQuery)
+                TextField("Search 300+ themes...", text: $searchQuery)
                     .textFieldStyle(.plain)
                 if !searchQuery.isEmpty {
                     Button {

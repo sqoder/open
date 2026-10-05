@@ -47,7 +47,7 @@ public final class SuqiWindowManager: ObservableObject {
             return controller
         }
 
-        let (cfg, _) = GhosttyUserConfig.load()
+        let (cfg, _) = SuqiUserConfig.load()
         let shouldSaveState = cfg.windowSaveState.lowercased() != "never"
 
         if windowControllers.isEmpty {

@@ -43,9 +43,9 @@ public struct SuqiTerminalView: View {
 
     @State private var configReloadToken = UUID()
 
-    private var userConfig: GhosttyUserConfig {
+    private var userConfig: SuqiUserConfig {
         _ = configReloadToken
-        return GhosttyUserConfig.load().config
+        return SuqiUserConfig.load().config
     }
 
     public var body: some View {
@@ -93,7 +93,7 @@ public struct SuqiTerminalView: View {
                 session.terminalView.window?.makeFirstResponder(session.terminalView)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .ghosttyConfigDidChange)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .suqiConfigDidChange)) { _ in
             configReloadToken = UUID()
         }
     }

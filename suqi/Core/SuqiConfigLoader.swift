@@ -1,5 +1,5 @@
 //
-//  GhosttyConfigLoader.swift
+//  SuqiConfigLoader.swift
 //  suqi
 //
 //  Created for suqi Terminal.
@@ -9,7 +9,9 @@ import Foundation
 import SwiftUI
 import AppKit
 
-public struct GhosttyUserConfig: Sendable {
+public typealias GhosttyUserConfig = SuqiUserConfig
+
+public struct SuqiUserConfig: Sendable {
     public var themeName: String = "Catppuccin Mocha"
     public var fontFamily: String = "Maple Mono NF"
     public var fontSize: Double = 13.0
@@ -38,9 +40,9 @@ public struct GhosttyUserConfig: Sendable {
     public var fontFeatures: [String] = []
     public var confirmCloseSurface: Bool = false
 
-    public static func load() -> (config: GhosttyUserConfig, filePath: String?) {
-        let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
+    public static func load() -> (config: SuqiUserConfig, filePath: String?) {
         let suqiPath = NSString(string: "~/.config/suqi/config").expandingTildeInPath
+        let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
 
         let targetPath: String? = {
             if FileManager.default.fileExists(atPath: suqiPath) {
@@ -51,7 +53,7 @@ public struct GhosttyUserConfig: Sendable {
             return nil
         }()
 
-        var cfg = GhosttyUserConfig()
+        var cfg = SuqiUserConfig()
         guard let path = targetPath, let content = try? String(contentsOfFile: path, encoding: .utf8) else {
             return (cfg, nil)
         }
@@ -175,19 +177,22 @@ public struct GhosttyUserConfig: Sendable {
 
         let newContent = updatedLines.joined(separator: "\n")
         try? newContent.write(toFile: suqiPath, atomically: true, encoding: .utf8)
-        NotificationCenter.default.post(name: .ghosttyConfigDidChange, object: nil)
+        NotificationCenter.default.post(name: .suqiConfigDidChange, object: nil)
     }
 }
 
 extension Notification.Name {
-    public static let ghosttyConfigDidChange = Notification.Name("GhosttyConfigDidChange")
+    public static let suqiConfigDidChange = Notification.Name("SuqiConfigDidChange")
+    public static let ghosttyConfigDidChange = suqiConfigDidChange
 }
 
-// MARK: - Configuration File Hot Reload Watcher (monitors ~/.config/ghostty/config or ~/.config/suqi/config)
+// MARK: - Configuration File Hot Reload Watcher (monitors ~/.config/suqi/config or fallback ~/.config/ghostty/config)
+
+public typealias GhosttyConfigFileWatcher = SuqiConfigFileWatcher
 
 @MainActor
-public final class GhosttyConfigFileWatcher: ObservableObject {
-    public static let shared = GhosttyConfigFileWatcher()
+public final class SuqiConfigFileWatcher: ObservableObject {
+    public static let shared = SuqiConfigFileWatcher()
 
     private var fileSource: DispatchSourceFileSystemObject?
     private var fileDescriptor: CInt = -1
@@ -199,7 +204,7 @@ public final class GhosttyConfigFileWatcher: ObservableObject {
     public func startWatching() {
         stopWatching()
 
-        let (_, resolvedPath) = GhosttyUserConfig.load()
+        let (_, resolvedPath) = SuqiUserConfig.load()
         guard let path = resolvedPath else { return }
 
         fileDescriptor = open(path, O_EVTONLY)
@@ -213,7 +218,7 @@ public final class GhosttyConfigFileWatcher: ObservableObject {
 
         source.setEventHandler { [weak self] in
             guard let self else { return }
-            NotificationCenter.default.post(name: .ghosttyConfigDidChange, object: nil)
+            NotificationCenter.default.post(name: .suqiConfigDidChange, object: nil)
             // Re-watch file upon changes to support atomic save/rename mechanisms (Vim/VSCode)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 self.startWatching()
@@ -322,7 +327,7 @@ public enum SuqiDirectoryManager {
 
     /// Resolves the preferred working directory in order:
     /// 1. Explicit directory passed by caller (e.g. new tab / split inheriting active cwd)
-    /// 2. Ghostty / Suqi config `working-directory` or `initial-working-directory` (if valid)
+    /// 2. Suqi config `working-directory` or `initial-working-directory` (or fallback config)
     /// 3. Disk cache file / UserDefaults (only if `restore-last-working-directory = true` in config)
     /// 4. User's Home directory (`NSHomeDirectory()`)
     public static func resolvedInitialWorkingDirectory(explicit: String? = nil) -> String {
@@ -333,7 +338,7 @@ public enum SuqiDirectoryManager {
             }
         }
 
-        let (config, _) = GhosttyUserConfig.load()
+        let (config, _) = SuqiUserConfig.load()
         if let configDir = config.workingDirectory, !configDir.isEmpty {
             let expanded = NSString(string: configDir).expandingTildeInPath
             if !expanded.isEmpty {

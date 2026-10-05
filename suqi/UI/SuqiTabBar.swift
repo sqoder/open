@@ -1,5 +1,5 @@
 //
-//  GhosttyTabBar.swift
+//  SuqiTabBar.swift
 //  suqi
 //
 //  Created for suqi Terminal.
@@ -228,9 +228,11 @@ public struct TabDragHandleRepresentable: NSViewRepresentable {
     }
 }
 
-// MARK: - GhosttyTabBar
+// MARK: - SuqiTabBar
 
-public struct GhosttyTabBar: View {
+public typealias GhosttyTabBar = SuqiTabBar
+
+public struct SuqiTabBar: View {
     @ObservedObject public var model: SuqiWindowModel
     @State private var hoveredTabId: UUID?
     @State private var draggingTabId: UUID?
@@ -267,7 +269,7 @@ public struct GhosttyTabBar: View {
         let isActive = model.activeTabId == tab.id
         let isHovered = hoveredTabId == tab.id
 
-        GhosttyTabItemView(
+        SuqiTabItemView(
             tab: tab,
             model: model,
             index: index,
@@ -352,7 +354,7 @@ public struct GhosttyTabBar: View {
 
 // MARK: - Individual Ultra-Refined Apple Capsule Tab Item View
 
-private struct GhosttyTabItemView: View {
+private struct SuqiTabItemView: View {
     @ObservedObject var tab: SuqiTab
     let model: SuqiWindowModel
     let index: Int

@@ -94,7 +94,7 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
             }
             .store(in: &cancellables)
 
-        NotificationCenter.default.publisher(for: .ghosttyConfigDidChange)
+        NotificationCenter.default.publisher(for: .suqiConfigDidChange)
             .sink { [weak self] _ in
                 self?.reloadConfiguration()
             }
@@ -226,7 +226,7 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
 
     /// In-place hot reload of themes, fonts, cursor, and configuration without restarting running processes
     public func reloadConfiguration() {
-        let (userConfig, _) = GhosttyUserConfig.load()
+        let (userConfig, _) = SuqiUserConfig.load()
         let theme = Self.buildTerminalTheme(userConfig: userConfig)
         state.setTheme(theme)
         let config = Self.buildTerminalConfiguration(userConfig: userConfig)
@@ -269,7 +269,7 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
         state.send("clear\n")
     }
 
-    public static func buildTerminalConfiguration(userConfig: GhosttyUserConfig) -> TerminalConfiguration {
+    public static func buildTerminalConfiguration(userConfig: SuqiUserConfig) -> TerminalConfiguration {
         let cursorStyle: TerminalCursorStyle
         switch userConfig.cursorStyle {
         case "block":
@@ -324,10 +324,10 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
         }
     }
 
-    public static func buildTerminalTheme(userConfig: GhosttyUserConfig) -> TerminalTheme {
+    public static func buildTerminalTheme(userConfig: SuqiUserConfig) -> TerminalTheme {
         let cleanBg: String? = userConfig.background?.trimmingCharacters(in: CharacterSet(charactersIn: "#\"\' "))
 
-        guard let themeDef = GhosttyThemeCatalog.theme(named: userConfig.themeName) else {
+        guard let themeDef = SuqiThemeCatalog.theme(named: userConfig.themeName) else {
             let defConfig = TerminalConfiguration { builder in
                 if userConfig.backgroundOpacityCells {
                     builder.withCustom("background-opacity-cells", "true")
@@ -358,7 +358,7 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
     }
 
     public static func buildTerminalViewState(workingDirectory: String) -> TerminalViewState {
-        let (userConfig, resolvedPath) = GhosttyUserConfig.load()
+        let (userConfig, resolvedPath) = SuqiUserConfig.load()
         let theme = buildTerminalTheme(userConfig: userConfig)
         let config = buildTerminalConfiguration(userConfig: userConfig)
 
@@ -386,8 +386,8 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
             backend: .exec,
             workingDirectory: resolvedDir,
             envVars: [
-                "TERM_PROGRAM": "ghostty",
-                "TERM_PROGRAM_VERSION": "1.3.1"
+                "TERM_PROGRAM": "suqi",
+                "TERM_PROGRAM_VERSION": "0.0.21"
             ]
         )
 

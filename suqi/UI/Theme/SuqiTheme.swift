@@ -9,6 +9,9 @@ import SwiftUI
 import AppKit
 import GhosttyTheme
 
+public typealias SuqiThemeCatalog = GhosttyThemeCatalog
+public typealias SuqiThemeDefinition = GhosttyThemeDefinition
+
 public enum SuqiTheme {
     public static let defaultBackgroundHex = "30333E"
 
@@ -16,7 +19,7 @@ public enum SuqiTheme {
         if let customBackground, !customBackground.trimmingCharacters(in: .whitespaces).isEmpty {
             return Color(hex: customBackground)
         }
-        if let theme = GhosttyThemeCatalog.theme(named: themeName) {
+        if let theme = SuqiThemeCatalog.theme(named: themeName) {
             return Color(hex: theme.background)
         }
         return Color(hex: defaultBackgroundHex)
@@ -26,7 +29,7 @@ public enum SuqiTheme {
         if let customBackground, !customBackground.trimmingCharacters(in: .whitespaces).isEmpty {
             return NSColor(hex: customBackground)
         }
-        if let theme = GhosttyThemeCatalog.theme(named: themeName) {
+        if let theme = SuqiThemeCatalog.theme(named: themeName) {
             return NSColor(hex: theme.background)
         }
         return NSColor(hex: defaultBackgroundHex)

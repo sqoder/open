@@ -435,8 +435,8 @@ public enum TerminalActionBridge {
 
         // 20b. ⌥⌘, (Open configuration file in text editor)
         if flags == [.command, .option] && event.charactersIgnoringModifiers == "," {
-            let (_, path) = GhosttyUserConfig.load()
-            let target = path ?? NSString(string: "~/.config/ghostty/config").expandingTildeInPath
+            let (_, path) = SuqiUserConfig.load()
+            let target = path ?? NSString(string: "~/.config/suqi/config").expandingTildeInPath
             NSWorkspace.shared.open(URL(fileURLWithPath: target))
             return nil
         }

@@ -14,7 +14,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = AppTerminalView.enableSmoothResizePipeline
         _ = AppTerminalView.enableContextMenuPipeline
         _ = AppTerminalView.enableDragAndDropPipeline
-        _ = GhosttyConfigFileWatcher.shared
+        _ = SuqiConfigFileWatcher.shared
         _ = QuickTerminalController.shared
         _ = SuqiWindowManager.shared.createWindow()
     }

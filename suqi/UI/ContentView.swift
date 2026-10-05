@@ -40,9 +40,9 @@ public struct ContentView: View {
         self.model = model
     }
 
-    private var userConfig: GhosttyUserConfig {
+    private var userConfig: SuqiUserConfig {
         _ = configReloadToken
-        return GhosttyUserConfig.load().config
+        return SuqiUserConfig.load().config
     }
 
     private var isTranslucent: Bool {
@@ -90,7 +90,7 @@ public struct ContentView: View {
                                 .frame(height: 36)
 
                             if model.tabs.count > 1 && windowWidth > 140 {
-                                GhosttyTabBar(model: model)
+                                SuqiTabBar(model: model)
                                     .frame(height: 36)
                             } else if let activeTab = model.activeTab, windowWidth > 180 {
                                 VStack(spacing: 2) {
@@ -165,7 +165,7 @@ public struct ContentView: View {
             }
             return true
         }
-        .onReceive(NotificationCenter.default.publisher(for: .ghosttyConfigDidChange)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .suqiConfigDidChange)) { _ in
             configReloadToken = UUID()
         }
     }
@@ -187,7 +187,7 @@ public struct ActiveTabView: View {
                     .id(activeSession.id)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // Minimalist zoom badge (Ghostty style)
+                // Minimalist zoom badge (Suqi style)
                 HStack(spacing: 5) {
                     Image(systemName: "arrow.down.right.and.arrow.up.left")
                         .font(.system(size: 9, weight: .bold))

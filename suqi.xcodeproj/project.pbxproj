@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1C8AF7221BA331EFBC3EC823 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CA1DBDA76BC2D1EE1A95D7B /* Assets.xcassets */; };
+		2EF8FD358B18BAD74FA20D79 /* SuqiTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D47163E2A4557F72008034 /* SuqiTabBar.swift */; };
 		4BBB4F3672C2980AC2C1E57A /* WindowDragArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F026B6776BE8F54802752AE /* WindowDragArea.swift */; };
 		52186170DF7FEFF7A9767E8C /* PinButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBFDDE6D003EE61561CC9CC /* PinButtonView.swift */; };
 		54D41B9923E4C9190A77683E /* SafePasteModalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B3F534C853061A2B19F24B /* SafePasteModalView.swift */; };
@@ -23,24 +24,23 @@
 		92D460DF1C9380361DDCD1B9 /* TerminalActionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 430DC079E285DD7A421F88E2 /* TerminalActionBridge.swift */; };
 		9B9B42DCF1ADAB43C96DFC7A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8100FEA1B96F6EC5FCCBBF21 /* SettingsView.swift */; };
 		A25F7F56420450291E05074B /* AppTerminalView+ContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F23CE583DF84BDD3B6029367 /* AppTerminalView+ContextMenu.swift */; };
-		A6264D803D40E6EA80C5E34C /* GhosttyConfigLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A267F01646B2D48A9B39D8 /* GhosttyConfigLoader.swift */; };
 		B6F758DCA625FF92CB83A607 /* SuqiWindowModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7F1F265537572EC00C0DF8 /* SuqiWindowModel.swift */; };
 		B8F4942D7AD906582FA42B79 /* QuickTerminalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F255C2E4967F7B0D77CE40 /* QuickTerminalController.swift */; };
 		C444DC2163132C1A3CDD21C7 /* AppTerminalView+Paste.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6A606433D31CF15D4E3070A /* AppTerminalView+Paste.swift */; };
 		D169B7676DA84876637D5D73 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 026D1368FE29CC719D26D23A /* GhosttyTerminal */; };
 		DEEC68AE60576CBF07C4C20B /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = CF935DA16E3F7B4A1BCADDA8 /* AppIcon.icns */; };
 		DF65D175EE3E7DEEC2067078 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBE890933D9DF182030884D9 /* AppDelegate.swift */; };
-		E5372661C8D65B4E7EF15DCD /* GhosttyTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DB61B0358E51D788578220F /* GhosttyTabBar.swift */; };
 		EC17C4A245342DEDC51BF192 /* SuqiTerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE3117CFA51D306A25BED0B7 /* SuqiTerminalSession.swift */; };
 		EFB405AEDA97715249476B41 /* SuqiTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38356A190F4A4CB490BCBAF5 /* SuqiTerminalView.swift */; };
 		F5BA4C34A9C33DB61CA89B1D /* TerminalWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65A5DFF5600AB429AE361CE /* TerminalWindowController.swift */; };
+		F8FC4A12294573CE3519CE04 /* SuqiConfigLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084F40526BF7536BD5AE59F4 /* SuqiConfigLoader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0119385D9912FA0CB136D963 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		048A109933C9821E6CCDC775 /* AppTerminalView+Drag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppTerminalView+Drag.swift"; sourceTree = "<group>"; };
+		084F40526BF7536BD5AE59F4 /* SuqiConfigLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuqiConfigLoader.swift; sourceTree = "<group>"; };
 		0CA1DBDA76BC2D1EE1A95D7B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		0DB61B0358E51D788578220F /* GhosttyTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyTabBar.swift; sourceTree = "<group>"; };
 		2A55F9B778CFADA8535586F9 /* SuqiTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuqiTheme.swift; sourceTree = "<group>"; };
 		38356A190F4A4CB490BCBAF5 /* SuqiTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuqiTerminalView.swift; sourceTree = "<group>"; };
 		3BBFDDE6D003EE61561CC9CC /* PinButtonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinButtonView.swift; sourceTree = "<group>"; };
@@ -51,8 +51,8 @@
 		6710207CA0BD2C3E412175F8 /* AppTerminalView+IME.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppTerminalView+IME.swift"; sourceTree = "<group>"; };
 		685F51842B1DB3E6E992F976 /* SuqiWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuqiWindowManager.swift; sourceTree = "<group>"; };
 		8100FEA1B96F6EC5FCCBBF21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		94D47163E2A4557F72008034 /* SuqiTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuqiTabBar.swift; sourceTree = "<group>"; };
 		A3B3F534C853061A2B19F24B /* SafePasteModalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafePasteModalView.swift; sourceTree = "<group>"; };
-		B9A267F01646B2D48A9B39D8 /* GhosttyConfigLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfigLoader.swift; sourceTree = "<group>"; };
 		BE3117CFA51D306A25BED0B7 /* SuqiTerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuqiTerminalSession.swift; sourceTree = "<group>"; };
 		C28B2121765CAE574534042D /* SafePasteGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafePasteGuard.swift; sourceTree = "<group>"; };
 		C68E7248FBDD6BCF85625B38 /* SuqiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuqiApp.swift; sourceTree = "<group>"; };
@@ -95,10 +95,10 @@
 			isa = PBXGroup;
 			children = (
 				4878471FB485E2C59461BA84 /* ContentView.swift */,
-				0DB61B0358E51D788578220F /* GhosttyTabBar.swift */,
 				3BBFDDE6D003EE61561CC9CC /* PinButtonView.swift */,
 				A3B3F534C853061A2B19F24B /* SafePasteModalView.swift */,
 				8100FEA1B96F6EC5FCCBBF21 /* SettingsView.swift */,
+				94D47163E2A4557F72008034 /* SuqiTabBar.swift */,
 				5F026B6776BE8F54802752AE /* WindowDragArea.swift */,
 				2D687235DBA6D5A26C8FA599 /* Theme */,
 			);
@@ -108,7 +108,7 @@
 		2103D86E00B14A841373F90B /* Core */ = {
 			isa = PBXGroup;
 			children = (
-				B9A267F01646B2D48A9B39D8 /* GhosttyConfigLoader.swift */,
+				084F40526BF7536BD5AE59F4 /* SuqiConfigLoader.swift */,
 				685F51842B1DB3E6E992F976 /* SuqiWindowManager.swift */,
 			);
 			path = Core;
@@ -262,14 +262,14 @@
 				C444DC2163132C1A3CDD21C7 /* AppTerminalView+Paste.swift in Sources */,
 				667C70ED3BD3D760E769945C /* AppTerminalView+SmoothResize.swift in Sources */,
 				600281785E0BB9B05B2B33CB /* ContentView.swift in Sources */,
-				A6264D803D40E6EA80C5E34C /* GhosttyConfigLoader.swift in Sources */,
-				E5372661C8D65B4E7EF15DCD /* GhosttyTabBar.swift in Sources */,
 				52186170DF7FEFF7A9767E8C /* PinButtonView.swift in Sources */,
 				B8F4942D7AD906582FA42B79 /* QuickTerminalController.swift in Sources */,
 				89363B2FE0834ED9D91162BE /* SafePasteGuard.swift in Sources */,
 				54D41B9923E4C9190A77683E /* SafePasteModalView.swift in Sources */,
 				9B9B42DCF1ADAB43C96DFC7A /* SettingsView.swift in Sources */,
 				7FABD35078400B22BF9A0571 /* SuqiApp.swift in Sources */,
+				F8FC4A12294573CE3519CE04 /* SuqiConfigLoader.swift in Sources */,
+				2EF8FD358B18BAD74FA20D79 /* SuqiTabBar.swift in Sources */,
 				EC17C4A245342DEDC51BF192 /* SuqiTerminalSession.swift in Sources */,
 				EFB405AEDA97715249476B41 /* SuqiTerminalView.swift in Sources */,
 				74DDB09A0FAC7C1DD4A1C9D9 /* SuqiTheme.swift in Sources */,

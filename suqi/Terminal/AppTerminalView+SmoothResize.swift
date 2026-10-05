@@ -11,9 +11,9 @@ import GhosttyTerminal
 extension AppTerminalView {
     private static var originalSetFrameSizeIMP: IMP?
 
-    /// Aligns with Ghostty macOS native rendering pipeline:
+    /// High-performance macOS native rendering pipeline:
     /// 1. Bypasses screenshot layer magic and multi-frame synchronous blocking render
-    /// 2. Adopts official Ghostty IOSurfaceLayer contentsGravity = .topLeft to eliminate Core Animation stretch distortion during live resize
+    /// 2. Adopts underlying IOSurfaceLayer contentsGravity = .topLeft to eliminate Core Animation stretch distortion during live resize
     /// 3. Sets layerContentsRedrawPolicy = .never to prevent AppKit from clearing layers during live resize
     /// 4. Direct invocation of fitToSize() matching official sizeDidChange pipeline
     public static let enableSmoothResizePipeline: Void = {
@@ -48,7 +48,7 @@ extension AppTerminalView {
             }
             view.layerContentsRedrawPolicy = .never
 
-            // 3. Notify Ghostty core to synchronize dimensions and schedule next DisplayLink frame
+            // 3. Notify terminal engine to synchronize dimensions and schedule next DisplayLink frame
             if sizeChanged && newSize.width >= 10 && newSize.height >= 10 {
                 view.fitToSize()
             }

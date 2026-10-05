@@ -487,7 +487,7 @@ public final class SuqiWindowModel: ObservableObject {
             return
         }
 
-        let (config, _) = GhosttyUserConfig.load()
+        let (config, _) = SuqiUserConfig.load()
         if config.confirmCloseSurface, session.hasActiveProcess, let proc = session.activeProcessName {
             let alert = NSAlert()
             alert.messageText = "Close session running '\(proc)'?"
@@ -513,7 +513,7 @@ public final class SuqiWindowModel: ObservableObject {
     public func closeTabWithConfirmation(id: UUID, in window: NSWindow?) {
         guard let tab = tabs.first(where: { $0.id == id }) else { return }
 
-        let (config, _) = GhosttyUserConfig.load()
+        let (config, _) = SuqiUserConfig.load()
         if config.confirmCloseSurface {
             let running = tab.allSessions.filter { $0.hasActiveProcess }
             if let first = running.first, let proc = first.activeProcessName {

@@ -183,9 +183,9 @@ struct SuqiApp: App {
                 .keyboardShortcut(",", modifiers: .command)
 
                 Button("Open Configuration File") {
-                    let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
                     let suqiPath = NSString(string: "~/.config/suqi/config").expandingTildeInPath
-                    let target = FileManager.default.fileExists(atPath: suqiPath) ? suqiPath : ghosttyPath
+                    let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
+                    let target = FileManager.default.fileExists(atPath: suqiPath) ? suqiPath : (FileManager.default.fileExists(atPath: ghosttyPath) ? ghosttyPath : suqiPath)
                     NSWorkspace.shared.open(URL(fileURLWithPath: target))
                 }
                 .keyboardShortcut(",", modifiers: [.command, .option])

@@ -99,7 +99,7 @@ public final class SuqiTerminalWindow: NSWindow {
         pinButton.isHidden = (frame.width < 120)
     }
 
-    /// Ghostty parity: hides redundant system titlebar background & decoration layers that cause double corner outlines
+    /// Native clean styling: hides redundant system titlebar background & decoration layers that cause double corner outlines
     public func cleanTitlebarDecorations() {
         guard let titlebarContainer = contentView?.superview?.subviews.first(where: {
             NSStringFromClass(type(of: $0)).contains("NSTitlebarContainerView")
@@ -120,7 +120,7 @@ public final class SuqiTerminalWindow: NSWindow {
     }
 }
 
-// MARK: - Native WindowServer Blur Bridge (Ghostty Parity)
+// MARK: - Native WindowServer Blur Bridge
 
 private typealias CGSConnectionID = UnsafeMutableRawPointer
 
@@ -144,7 +144,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
     public init(model: SuqiWindowModel) {
         self.model = model
 
-        let (userConfig, _) = GhosttyUserConfig.load()
+        let (userConfig, _) = SuqiUserConfig.load()
         let isTranslucent = userConfig.backgroundOpacity < 1.0 || userConfig.backgroundBlur > 0
 
         // Parse initial window size from window-width / window-height config
@@ -185,7 +185,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         window.title = "suqi"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        // Disable isMovableByWindowBackground so mouse dragging passes cleanly to Ghostty Terminal for text selection
+        // Disable isMovableByWindowBackground so mouse dragging passes cleanly to Terminal for text selection
         window.isMovableByWindowBackground = false
         let baseBg = SuqiTheme.nsBackgroundColor(for: userConfig.themeName, customBackground: userConfig.background)
         if isTranslucent {
@@ -203,7 +203,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         window.contentMinSize = NSSize(width: 80, height: 32)
         window.isReleasedWhenClosed = false
 
-        // Align with Ghostty window-save-state: persist window size and position
+        // Persist window size and position
         if userConfig.windowSaveState.lowercased() != "never" {
             window.setFrameAutosaveName("SuqiTerminalWindow")
         }
@@ -317,7 +317,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         guard SuqiWindowManager.shared.windowControllers.first === self || SuqiWindowManager.shared.windowControllers.count <= 1 else {
             return
         }
-        let (userConfig, _) = GhosttyUserConfig.load()
+        let (userConfig, _) = SuqiUserConfig.load()
         if userConfig.windowSaveState.lowercased() != "never" {
             if window.frame.width < 140 || window.frame.height < 60 {
                 var f = window.frame
@@ -358,7 +358,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
 
     public func updateThemeBackground() {
         guard let window = self.window else { return }
-        let (userConfig, _) = GhosttyUserConfig.load()
+        let (userConfig, _) = SuqiUserConfig.load()
         let isTranslucent = userConfig.backgroundOpacity < 1.0 || userConfig.backgroundBlur > 0
         let baseBg = SuqiTheme.nsBackgroundColor(for: userConfig.themeName, customBackground: userConfig.background)
         if isTranslucent {
@@ -382,7 +382,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
     // MARK: - NSWindowDelegate
 
     public func windowShouldClose(_ sender: NSWindow) -> Bool {
-        let (config, _) = GhosttyUserConfig.load()
+        let (config, _) = SuqiUserConfig.load()
         guard config.confirmCloseSurface else {
             return true
         }
