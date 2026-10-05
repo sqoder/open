@@ -32,6 +32,10 @@ public struct GhosttyUserConfig: Sendable {
     public var foreground: String? = nil
     public var workingDirectory: String? = nil
     public var restoreLastWorkingDirectory: Bool = false
+    public var unfocusedSplitOpacity: Double = 0.75
+    public var mouseScrollMultiplier: Double = 1.0
+    public var command: String? = nil
+    public var fontFeatures: [String] = []
 
     public static func load() -> (config: GhosttyUserConfig, filePath: String?) {
         let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
@@ -105,6 +109,18 @@ public struct GhosttyUserConfig: Sendable {
                 cfg.background = val
             case "foreground":
                 cfg.foreground = val
+            case "unfocused-split-opacity":
+                if let v = Double(val) { cfg.unfocusedSplitOpacity = max(0.0, min(1.0, v)) }
+            case "mouse-scroll-multiplier":
+                if let v = Double(val) { cfg.mouseScrollMultiplier = max(0.1, min(10.0, v)) }
+            case "command":
+                let trimmedCmd = val.trimmingCharacters(in: .whitespaces)
+                cfg.command = trimmedCmd.isEmpty ? nil : trimmedCmd
+            case "font-feature":
+                let features = val.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                for f in features where !f.isEmpty {
+                    cfg.fontFeatures.append(f)
+                }
             default:
                 break
             }

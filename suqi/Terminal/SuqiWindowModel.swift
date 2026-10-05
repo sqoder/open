@@ -679,20 +679,49 @@ public final class SuqiWindowModel: ObservableObject {
         focusActiveSession()
     }
 
-    /// Detaches a tab into a new standalone window
-    public func detachTabToNewWindow(id: UUID) {
+    /// Detaches a tab into a new standalone window, optionally positioned at a screen point
+    public func detachTabToNewWindow(id: UUID, at screenPoint: NSPoint? = nil) {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         objectWillChange.send()
         let tab = tabs.remove(at: index)
         if activeTabId == id {
             activeTabId = tabs.first?.id
         }
-        SuqiWindowManager.shared.createWindow(withTab: tab)
+        SuqiWindowManager.shared.createWindow(withTab: tab, at: screenPoint)
         if tabs.isEmpty {
             onCloseWindowRequested?()
         } else {
             focusActiveSession()
         }
+    }
+
+    /// Removes a tab without closing the window (used for cross-window tab dragging)
+    @discardableResult
+    public func removeTabWithoutClosingWindow(id: UUID) -> SuqiTab? {
+        guard let index = tabs.firstIndex(where: { $0.id == id }) else { return nil }
+        objectWillChange.send()
+        let tab = tabs.remove(at: index)
+        if activeTabId == id {
+            activeTabId = tabs.first?.id
+        }
+        if tabs.isEmpty {
+            onCloseWindowRequested?()
+        } else {
+            focusActiveSession()
+        }
+        return tab
+    }
+
+    /// Inserts an existing tab at the specified index (used for cross-window tab dragging)
+    public func insertTab(_ tab: SuqiTab, at index: Int) {
+        objectWillChange.send()
+        let targetIndex = max(0, min(index, tabs.count))
+        for session in tab.allSessions {
+            attachSessionCallbacks(session)
+        }
+        tabs.insert(tab, at: targetIndex)
+        activeTabId = tab.id
+        focusActiveSession()
     }
 
     /// Background occlusion state handling for power efficiency

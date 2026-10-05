@@ -93,9 +93,9 @@ public final class SuqiWindowManager: ObservableObject {
         return controller
     }
 
-    /// Creates a new standalone terminal window with an existing detached tab
+    /// Creates a new standalone terminal window with an existing detached tab, optionally at a designated screen point
     @discardableResult
-    public func createWindow(withTab tab: SuqiTab) -> TerminalWindowController {
+    public func createWindow(withTab tab: SuqiTab, at screenPoint: NSPoint? = nil) -> TerminalWindowController {
         let model = SuqiWindowModel(withTab: tab)
         let controller = TerminalWindowController(model: model)
 
@@ -105,7 +105,32 @@ public final class SuqiWindowManager: ObservableObject {
             return controller
         }
 
-        if let activeWin = activeWindowController?.window {
+        if let screenPoint {
+            // Inherit dimensions from active window if present
+            if let activeWin = activeWindowController?.window {
+                var newFrame = win.frame
+                newFrame.size = activeWin.frame.size
+                win.setFrame(newFrame, display: false)
+            }
+
+            // Offset top-left so the tab bar is positioned naturally under the mouse
+            var targetTopLeft = NSPoint(
+                x: screenPoint.x - 80,
+                y: screenPoint.y + 18
+            )
+
+            // Clamp inside screen visible bounds
+            let targetScreen = NSScreen.screens.first(where: { NSPointInRect(screenPoint, $0.frame) }) ?? NSScreen.main
+            if let visible = targetScreen?.visibleFrame {
+                let winW = win.frame.width
+                let winH = win.frame.height
+                targetTopLeft.x = max(visible.minX, min(targetTopLeft.x, visible.maxX - winW))
+                targetTopLeft.y = min(visible.maxY, max(targetTopLeft.y, visible.minY + winH))
+            }
+
+            win.setFrameTopLeftPoint(targetTopLeft)
+            lastWindowTopLeft = targetTopLeft
+        } else if let activeWin = activeWindowController?.window {
             var newFrame = win.frame
             newFrame.size = activeWin.frame.size
             win.setFrame(newFrame, display: false)
@@ -121,6 +146,16 @@ public final class SuqiWindowManager: ObservableObject {
         windowControllers.append(controller)
         controller.showWindow()
         return controller
+    }
+
+    /// Finds a tab and its owning window model across all active windows
+    public func findTabAndModel(id: UUID) -> (model: SuqiWindowModel, tab: SuqiTab)? {
+        for controller in windowControllers {
+            if let tab = controller.model.tabs.first(where: { $0.id == id }) {
+                return (controller.model, tab)
+            }
+        }
+        return nil
     }
 
     /// Removes a closed window controller

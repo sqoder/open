@@ -41,6 +41,13 @@ public struct SuqiTerminalView: View {
         model.activeSessionId == session.id
     }
 
+    @State private var configReloadToken = UUID()
+
+    private var userConfig: GhosttyUserConfig {
+        _ = configReloadToken
+        return GhosttyUserConfig.load().config
+    }
+
     public var body: some View {
         ZStack(alignment: .trailing) {
             PersistentTerminalSurfaceView(session: session)
@@ -50,6 +57,17 @@ public struct SuqiTerminalView: View {
 
             // Minimalist scrollbar (clean #9D9FA2 thumb, hidden by default, fades in during scrolling)
             TerminalScrollbarView(session: session)
+
+            // Smooth dimming overlay for unfocused split pane (unfocused-split-opacity)
+            if isMultiPane && !isActivePane {
+                let dimOpacity = max(0.0, min(1.0, 1.0 - userConfig.unfocusedSplitOpacity))
+                if dimOpacity > 0.001 {
+                    Color.black
+                        .opacity(dimOpacity)
+                        .allowsHitTesting(false)
+                        .animation(.easeInOut(duration: 0.15), value: isActivePane)
+                }
+            }
 
             // Subtle border indicator for active pane in split mode
             if isMultiPane && isActivePane {
@@ -74,6 +92,9 @@ public struct SuqiTerminalView: View {
             if newId == session.id {
                 session.terminalView.window?.makeFirstResponder(session.terminalView)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .ghosttyConfigDidChange)) { _ in
+            configReloadToken = UUID()
         }
     }
 }

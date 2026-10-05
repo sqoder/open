@@ -9,6 +9,227 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+// MARK: - Tab Drag Session Coordinator (AppKit NSDraggingSession)
+
+@MainActor
+public final class TabDragSessionCoordinator: ObservableObject {
+    public static let shared = TabDragSessionCoordinator()
+
+    public private(set) var activeTabId: UUID?
+    private weak var sourceModel: SuqiWindowModel?
+    private weak var sourceWindow: NSWindow?
+    public var didDropInDestination: Bool = false
+
+    private init() {}
+
+    public func beginSession(tabId: UUID, sourceModel: SuqiWindowModel, sourceWindow: NSWindow) {
+        self.activeTabId = tabId
+        self.sourceModel = sourceModel
+        self.sourceWindow = sourceWindow
+        self.didDropInDestination = false
+    }
+
+    public func markDroppedInDestination() {
+        self.didDropInDestination = true
+    }
+
+    public func sessionEnded(at screenPoint: NSPoint, operation: NSDragOperation) {
+        defer {
+            self.activeTabId = nil
+            self.sourceModel = nil
+            self.sourceWindow = nil
+            self.didDropInDestination = false
+        }
+
+        guard let tabId = self.activeTabId,
+              let sourceModel = self.sourceModel
+        else { return }
+
+        // If the drop was handled by a tab bar destination (reorder or tab transfer), do not detach
+        if didDropInDestination {
+            return
+        }
+
+        // Only detach if the source window has at least 2 tabs
+        guard sourceModel.tabs.count > 1 else { return }
+
+        // Check if mouse was released outside the source window frame
+        let isOutsideSourceWindow: Bool
+        if let window = sourceWindow {
+            isOutsideSourceWindow = !NSPointInRect(screenPoint, window.frame)
+        } else {
+            isOutsideSourceWindow = true
+        }
+
+        if isOutsideSourceWindow {
+            sourceModel.detachTabToNewWindow(id: tabId, at: screenPoint)
+        }
+    }
+}
+
+// MARK: - Native AppKit Tab Drag Handle (NSDraggingSession & NSDraggingSource)
+
+public final class TabDragHandleView: NSView, NSDraggingSource {
+    public var tab: SuqiTab
+    public weak var model: SuqiWindowModel?
+    public var onSelect: (() -> Void)?
+    public var onHover: ((Bool) -> Void)?
+
+    private var mouseDownPoint: NSPoint = .zero
+    private var isDraggingSessionActive = false
+    private var trackingArea: NSTrackingArea?
+
+    public init(tab: SuqiTab, model: SuqiWindowModel, onSelect: @escaping () -> Void, onHover: @escaping (Bool) -> Void) {
+        self.tab = tab
+        self.model = model
+        self.onSelect = onSelect
+        self.onHover = onHover
+        super.init(frame: .zero)
+        self.wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways, .inVisibleRect]
+        let area = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    public override func mouseEntered(with event: NSEvent) {
+        onHover?(true)
+    }
+
+    public override func mouseExited(with event: NSEvent) {
+        onHover?(false)
+    }
+
+    public override func hitTest(_ point: NSPoint) -> NSView? {
+        // Yield trailing 24pt to SwiftUI close button
+        if point.x > bounds.width - 24 {
+            return nil
+        }
+        return super.hitTest(point)
+    }
+
+    public override func mouseDown(with event: NSEvent) {
+        mouseDownPoint = event.locationInWindow
+        isDraggingSessionActive = false
+    }
+
+    public override func mouseDragged(with event: NSEvent) {
+        guard !isDraggingSessionActive else { return }
+        let currentPoint = event.locationInWindow
+        let dx = abs(currentPoint.x - mouseDownPoint.x)
+        let dy = abs(currentPoint.y - mouseDownPoint.y)
+
+        // Drag threshold of 4 points
+        if dx > 4 || dy > 4 {
+            isDraggingSessionActive = true
+            startDraggingSession(with: event)
+        }
+    }
+
+    public override func mouseUp(with event: NSEvent) {
+        if !isDraggingSessionActive {
+            onSelect?()
+        }
+        isDraggingSessionActive = false
+    }
+
+    public override func rightMouseDown(with event: NSEvent) {
+        super.rightMouseDown(with: event)
+    }
+
+    private func startDraggingSession(with event: NSEvent) {
+        guard let window = self.window, let model = self.model else { return }
+
+        let pboardItem = NSPasteboardItem()
+        pboardItem.setString(tab.id.uuidString, forType: .string)
+        pboardItem.setString(tab.id.uuidString, forType: NSPasteboard.PasteboardType("com.suqi.tab"))
+
+        let dragItem = NSDraggingItem(pasteboardWriter: pboardItem)
+        let dragBounds = self.bounds.size.width > 0 ? self.bounds : NSRect(x: 0, y: 0, width: 120, height: 23)
+        let dragImage = createDragImage(title: tab.tabDisplayTitle.isEmpty ? tab.title : tab.tabDisplayTitle)
+        dragItem.setDraggingFrame(dragBounds, contents: dragImage)
+
+        TabDragSessionCoordinator.shared.beginSession(
+            tabId: tab.id,
+            sourceModel: model,
+            sourceWindow: window
+        )
+
+        self.beginDraggingSession(with: [dragItem], event: event, source: self)
+    }
+
+    private func createDragImage(title: String) -> NSImage {
+        let size = self.bounds.size.width > 0 ? self.bounds.size : NSSize(width: 120, height: 23)
+        let image = NSImage(size: size)
+        image.lockFocus()
+
+        let rect = NSRect(origin: .zero, size: size)
+        let path = NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 11, yRadius: 11)
+        NSColor.white.withAlphaComponent(0.18).setFill()
+        path.fill()
+        NSColor.white.withAlphaComponent(0.25).setStroke()
+        path.lineWidth = 0.8
+        path.stroke()
+
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        paragraphStyle.lineBreakMode = .byTruncatingMiddle
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .foregroundColor: NSColor.white.withAlphaComponent(0.95),
+            .paragraphStyle: paragraphStyle
+        ]
+        let textRect = NSRect(x: 10, y: (size.height - 14) / 2, width: max(10, size.width - 20), height: 14)
+        (title as NSString).draw(in: textRect, withAttributes: attrs)
+
+        image.unlockFocus()
+        return image
+    }
+
+    // MARK: - NSDraggingSource
+
+    public func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        return .move
+    }
+
+    public func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        DispatchQueue.main.async {
+            TabDragSessionCoordinator.shared.sessionEnded(at: screenPoint, operation: operation)
+        }
+    }
+}
+
+public struct TabDragHandleRepresentable: NSViewRepresentable {
+    let tab: SuqiTab
+    let model: SuqiWindowModel
+    let onSelect: () -> Void
+    let onHover: (Bool) -> Void
+
+    public func makeNSView(context: Context) -> TabDragHandleView {
+        TabDragHandleView(tab: tab, model: model, onSelect: onSelect, onHover: onHover)
+    }
+
+    public func updateNSView(_ nsView: TabDragHandleView, context: Context) {
+        nsView.tab = tab
+        nsView.model = model
+        nsView.onSelect = onSelect
+        nsView.onHover = onHover
+    }
+}
+
+// MARK: - GhosttyTabBar
+
 public struct GhosttyTabBar: View {
     @ObservedObject public var model: SuqiWindowModel
     @State private var hoveredTabId: UUID?
@@ -48,6 +269,7 @@ public struct GhosttyTabBar: View {
 
         GhosttyTabItemView(
             tab: tab,
+            model: model,
             index: index,
             isActive: isActive,
             isTabHovered: isHovered,
@@ -56,6 +278,9 @@ public struct GhosttyTabBar: View {
             },
             onClose: {
                 model.closeTabWithConfirmation(id: tab.id, in: NSApp.keyWindow)
+            },
+            onHover: { hovering in
+                hoveredTabId = hovering ? tab.id : nil
             }
         )
         .onHover { hovering in
@@ -64,12 +289,8 @@ public struct GhosttyTabBar: View {
         .contextMenu {
             tabContextMenu(tab)
         }
-        .onDrag {
-            self.draggingTabId = tab.id
-            return NSItemProvider(object: tab.id.uuidString as NSString)
-        }
         .onDrop(
-            of: [UTType.text],
+            of: [UTType.text, UTType.plainText],
             delegate: TabDropDelegate(
                 destinationTab: tab,
                 model: model,
@@ -133,11 +354,13 @@ public struct GhosttyTabBar: View {
 
 private struct GhosttyTabItemView: View {
     @ObservedObject var tab: SuqiTab
+    let model: SuqiWindowModel
     let index: Int
     let isActive: Bool
     let isTabHovered: Bool
     let onSelect: () -> Void
     let onClose: () -> Void
+    let onHover: (Bool) -> Void
 
     @State private var isCloseHovered: Bool = false
 
@@ -146,12 +369,21 @@ private struct GhosttyTabItemView: View {
             // Perfect continuous capsule background
             backgroundView
 
+            // AppKit Tab Drag Handle with NSDraggingSession & hit-test pass-through
+            TabDragHandleRepresentable(
+                tab: tab,
+                model: model,
+                onSelect: onSelect,
+                onHover: onHover
+            )
+
             // Center: Tab title
             HStack(spacing: 0) {
                 Spacer(minLength: 26)
                 tabTitle
                 Spacer(minLength: 26)
             }
+            .allowsHitTesting(false)
 
             // Leading: active process indicator
             HStack {
@@ -164,6 +396,7 @@ private struct GhosttyTabItemView: View {
                 }
                 Spacer()
             }
+            .allowsHitTesting(false)
 
             // Trailing: shortcut badge (⌘N) or close button (on hover)
             HStack {
@@ -174,15 +407,13 @@ private struct GhosttyTabItemView: View {
                 } else if index < 9 {
                     shortcutBadge
                         .padding(.trailing, 9)
+                        .allowsHitTesting(false)
                 }
             }
         }
         .frame(maxWidth: .infinity)
         .frame(height: 23)
         .contentShape(Capsule(style: .continuous))
-        .onTapGesture {
-            onSelect()
-        }
     }
 
     private var tabTitle: some View {
@@ -240,7 +471,7 @@ private struct GhosttyTabItemView: View {
     }
 }
 
-// MARK: - Tab Drop Delegate (Reordering)
+// MARK: - Tab Drop Delegate (Reordering & Cross-Window Transfer)
 
 struct TabDropDelegate: DropDelegate {
     let destinationTab: SuqiTab
@@ -248,9 +479,9 @@ struct TabDropDelegate: DropDelegate {
     @Binding var draggingTabId: UUID?
 
     func dropEntered(info: DropInfo) {
-        guard let draggingTabId,
-              draggingTabId != destinationTab.id,
-              let fromIndex = model.tabs.firstIndex(where: { $0.id == draggingTabId }),
+        guard let currentId = TabDragSessionCoordinator.shared.activeTabId ?? draggingTabId,
+              currentId != destinationTab.id,
+              let fromIndex = model.tabs.firstIndex(where: { $0.id == currentId }),
               let toIndex = model.tabs.firstIndex(where: { $0.id == destinationTab.id })
         else { return }
 
@@ -260,7 +491,19 @@ struct TabDropDelegate: DropDelegate {
     }
 
     func performDrop(info: DropInfo) -> Bool {
+        TabDragSessionCoordinator.shared.markDroppedInDestination()
         draggingTabId = nil
+
+        // Cross-window tab dragging support
+        if let draggingId = TabDragSessionCoordinator.shared.activeTabId,
+           !model.tabs.contains(where: { $0.id == draggingId }),
+           let (sourceModel, sourceTab) = SuqiWindowManager.shared.findTabAndModel(id: draggingId) {
+            sourceModel.removeTabWithoutClosingWindow(id: draggingId)
+            let destIndex = model.tabs.firstIndex(where: { $0.id == destinationTab.id }) ?? model.tabs.count
+            model.insertTab(sourceTab, at: destIndex)
+            return true
+        }
+
         return true
     }
 

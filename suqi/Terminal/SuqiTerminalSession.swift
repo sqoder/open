@@ -305,6 +305,15 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
                 let cleanBg = bg.trimmingCharacters(in: CharacterSet(charactersIn: "#\"\' "))
                 builder.withCustom("background", "#\(cleanBg)")
             }
+            if userConfig.mouseScrollMultiplier != 1.0 {
+                builder.withCustom("mouse-scroll-multiplier", "\(userConfig.mouseScrollMultiplier)")
+            }
+            if let cmd = userConfig.command, !cmd.isEmpty {
+                builder.withCustom("command", cmd)
+            }
+            for feature in userConfig.fontFeatures {
+                builder.withCustom("font-feature", feature)
+            }
             builder.withCustom("keybind", "super+c=copy_to_clipboard")
             builder.withCustom("keybind", "super+a=select_all")
         }
