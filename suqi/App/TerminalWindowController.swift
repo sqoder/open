@@ -353,6 +353,11 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
     // MARK: - NSWindowDelegate
 
     public func windowShouldClose(_ sender: NSWindow) -> Bool {
+        let (config, _) = GhosttyUserConfig.load()
+        guard config.confirmCloseSurface else {
+            return true
+        }
+
         let running = model.sessions.filter { $0.hasActiveProcess }
         if let first = running.first, let proc = first.activeProcessName {
             let alert = NSAlert()

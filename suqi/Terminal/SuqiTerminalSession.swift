@@ -151,24 +151,29 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
 
     /// Detects active foreground process running in this session (e.g. vim, nvim, ssh, python, cargo, agy, claude, codex)
     public var activeProcessName: String? {
-        let raw = state.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let defaultShells: Set<String> = [
             "zsh", "bash", "fish", "sh", "tcsh", "csh", "ksh", "login",
             "-zsh", "-bash", "-fish", "suqi"
         ]
-        if !raw.isEmpty {
-            let firstToken = raw.components(separatedBy: .whitespaces).first?.lowercased() ?? ""
-            let cleanToken = firstToken.hasPrefix("-") ? String(firstToken.dropFirst()) : firstToken
-            if !defaultShells.contains(cleanToken) {
-                return raw
-            }
-        }
 
-        // Fallback: query kernel process table for child processes
+        // 1. Primary authority: query kernel process table for running child processes
         if let kernelProc = DarwinProcessHelper.findLatestChildProcessName() {
             let cleanKernel = kernelProc.lowercased()
             if !defaultShells.contains(cleanKernel) {
                 return kernelProc
+            }
+        }
+
+        // 2. Fallback: check state.title only if it's NOT a directory or path (e.g. "~", "/Users/...", etc.)
+        let raw = state.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !raw.isEmpty {
+            if raw == "~" || raw.hasPrefix("~/") || raw.hasPrefix("/") || raw.hasPrefix("./") || raw.contains("/") {
+                return nil
+            }
+            let firstToken = raw.components(separatedBy: .whitespaces).first?.lowercased() ?? ""
+            let cleanToken = firstToken.hasPrefix("-") ? String(firstToken.dropFirst()) : firstToken
+            if !defaultShells.contains(cleanToken) && cleanToken != "~" {
+                return raw
             }
         }
 

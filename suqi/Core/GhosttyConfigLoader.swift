@@ -36,6 +36,7 @@ public struct GhosttyUserConfig: Sendable {
     public var mouseScrollMultiplier: Double = 1.0
     public var command: String? = nil
     public var fontFeatures: [String] = []
+    public var confirmCloseSurface: Bool = false
 
     public static func load() -> (config: GhosttyUserConfig, filePath: String?) {
         let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
@@ -121,6 +122,8 @@ public struct GhosttyUserConfig: Sendable {
                 for f in features where !f.isEmpty {
                     cfg.fontFeatures.append(f)
                 }
+            case "confirm-close-surface":
+                cfg.confirmCloseSurface = (val.lowercased() == "true")
             default:
                 break
             }

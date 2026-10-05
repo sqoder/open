@@ -480,14 +480,15 @@ public final class SuqiWindowModel: ObservableObject {
         tabs.removeAll()
     }
 
-    /// Closes the active session, prompting user confirmation if a non-shell process is running
+    /// Closes the active session, prompting user confirmation only if confirm-close-surface is true
     public func closeActiveSessionWithConfirmation(in window: NSWindow?) {
         guard let session = activeSession else {
             _ = closeActiveSession()
             return
         }
 
-        if session.hasActiveProcess, let proc = session.activeProcessName {
+        let (config, _) = GhosttyUserConfig.load()
+        if config.confirmCloseSurface, session.hasActiveProcess, let proc = session.activeProcessName {
             let alert = NSAlert()
             alert.messageText = "Close session running '\(proc)'?"
             alert.informativeText = "Closing this session will terminate the running process."
@@ -508,25 +509,29 @@ public final class SuqiWindowModel: ObservableObject {
         _ = closeActiveSession()
     }
 
-    /// Closes a tab by ID, prompting user confirmation if any session in the tab has a running process
+    /// Closes a tab by ID, prompting user confirmation only if confirm-close-surface is true
     public func closeTabWithConfirmation(id: UUID, in window: NSWindow?) {
         guard let tab = tabs.first(where: { $0.id == id }) else { return }
-        let running = tab.allSessions.filter { $0.hasActiveProcess }
-        if let first = running.first, let proc = first.activeProcessName {
-            let alert = NSAlert()
-            alert.messageText = "Close tab running '\(proc)'?"
-            alert.informativeText = "There are active processes running in this tab. Closing it will terminate them."
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: "Close Tab")
-            alert.addButton(withTitle: "Cancel")
 
-            if let window {
-                alert.beginSheetModal(for: window) { [weak self] response in
-                    if response == .alertFirstButtonReturn {
-                        _ = self?.closeTab(id: id)
+        let (config, _) = GhosttyUserConfig.load()
+        if config.confirmCloseSurface {
+            let running = tab.allSessions.filter { $0.hasActiveProcess }
+            if let first = running.first, let proc = first.activeProcessName {
+                let alert = NSAlert()
+                alert.messageText = "Close tab running '\(proc)'?"
+                alert.informativeText = "There are active processes running in this tab. Closing it will terminate them."
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Close Tab")
+                alert.addButton(withTitle: "Cancel")
+
+                if let window {
+                    alert.beginSheetModal(for: window) { [weak self] response in
+                        if response == .alertFirstButtonReturn {
+                            _ = self?.closeTab(id: id)
+                        }
                     }
+                    return
                 }
-                return
             }
         }
 
