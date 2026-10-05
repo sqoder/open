@@ -8,6 +8,7 @@
 import AppKit
 import SwiftUI
 import GhosttyTerminal
+import Combine
 
 public final class SuqiHostingView<Content: View>: NSHostingView<Content> {
     public override var intrinsicContentSize: NSSize {
@@ -21,6 +22,7 @@ public final class SuqiHostingView<Content: View>: NSHostingView<Content> {
 
 public final class SuqiTerminalWindow: NSWindow {
     public var isFullScreenTransitioning: Bool = false
+    public let pinButton = NativePinButtonView(frame: NSRect(x: 0, y: 0, width: 14, height: 14))
 
     override public var minSize: NSSize {
         get { NSSize(width: 80, height: 32) }
@@ -66,13 +68,20 @@ public final class SuqiTerminalWindow: NSWindow {
     }
 
     public func adjustTrafficLights() {
-        guard !styleMask.contains(.fullScreen), !isFullScreenTransitioning else { return }
+        guard !styleMask.contains(.fullScreen), !isFullScreenTransitioning else {
+            pinButton.isHidden = true
+            return
+        }
         guard let close = standardWindowButton(.closeButton),
               let mini = standardWindowButton(.miniaturizeButton),
-              let zoom = standardWindowButton(.zoomButton) else { return }
+              let zoom = standardWindowButton(.zoomButton),
+              let container = close.superview else {
+            pinButton.isHidden = true
+            return
+        }
 
         // Modern macOS breathing room: center traffic light buttons vertically in 32pt titlebar
-        let superHeight = close.superview?.frame.height ?? 32.0
+        let superHeight = container.frame.height
         let targetY: CGFloat = max(0, (superHeight - 14.0) / 2.0)
         let targetStartX: CGFloat = 13.0
         let spacing: CGFloat = 20.0
@@ -80,6 +89,12 @@ public final class SuqiTerminalWindow: NSWindow {
         close.setFrameOrigin(NSPoint(x: targetStartX, y: targetY))
         mini.setFrameOrigin(NSPoint(x: targetStartX + spacing, y: targetY))
         zoom.setFrameOrigin(NSPoint(x: targetStartX + spacing * 2, y: targetY))
+
+        if pinButton.superview !== container {
+            container.addSubview(pinButton)
+        }
+        pinButton.frame = NSRect(x: targetStartX + spacing * 3, y: targetY, width: 14.0, height: 14.0)
+        pinButton.isHidden = (frame.width < 120)
     }
 
     /// Ghostty parity: hides redundant system titlebar background & decoration layers that cause double corner outlines
@@ -194,6 +209,9 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         let contentView = ContentView(model: model)
         window.contentView = SuqiHostingView(rootView: contentView)
 
+        // Connect native pin button to window model
+        window.pinButton.model = model
+
         super.init(window: window)
         window.delegate = self
 
@@ -202,10 +220,19 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
             self?.closeWindow()
         }
 
+        model.$isPinned
+            .receive(on: DispatchQueue.main)
+            .sink { [weak window] _ in
+                window?.pinButton.updateTooltip()
+                window?.pinButton.needsDisplay = true
+            }
+            .store(in: &cancellables)
+
         setupKeyEventMonitor()
         setupOcclusionStateObserver()
     }
 
+    private var cancellables = Set<AnyCancellable>()
     private var occlusionObserver: Any?
 
     required init?(coder: NSCoder) {

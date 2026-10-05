@@ -5,92 +5,112 @@
 //  Created for suqi Terminal.
 //
 
-import SwiftUI
 import AppKit
+import SwiftUI
 
-public struct PinButtonView: View {
-    @ObservedObject public var model: SuqiWindowModel
-    @State private var isAreaHovered: Bool = false
-    @State private var isButtonHovered: Bool = false
+// MARK: - Native AppKit Pin Button (1:1 with macOS Traffic Lights)
 
-    public init(model: SuqiWindowModel) {
-        self.model = model
+public final class NativePinButtonView: NSControl {
+    public weak var model: SuqiWindowModel?
+    private var isHovered: Bool = false
+    private var trackingArea: NSTrackingArea?
+
+    public var isPinned: Bool {
+        model?.isPinned ?? false
     }
 
-    private var shouldShow: Bool {
-        isAreaHovered || isButtonHovered || model.isPinned
+    public override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        self.wantsLayer = true
+        updateTooltip()
     }
 
-    // High-end minimalist Apple monochrome style — NO loud orange
-    private var pinColor: Color {
-        if model.isPinned {
-            return Color.white.opacity(0.96)
-        } else if isButtonHovered {
-            return Color.white.opacity(0.90)
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+
+    public func updateTooltip() {
+        self.toolTip = isPinned ? "Unpin Window" : "Pin Window on Top (Always on Top)"
+    }
+
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea {
+            removeTrackingArea(trackingArea)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        self.trackingArea = area
+    }
+
+    public override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        needsDisplay = true
+    }
+
+    public override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        needsDisplay = true
+    }
+
+    public override func mouseDown(with event: NSEvent) {
+        guard let model else { return }
+        model.togglePin()
+        updateTooltip()
+        needsDisplay = true
+    }
+
+    public override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        // Exact circular button dimensions matching macOS traffic lights (14x14 pt)
+        let circleRect = bounds.insetBy(dx: 0.5, dy: 0.5)
+        let path = NSBezierPath(ovalIn: circleRect)
+
+        // Minimalist monochromatic Apple styling (NO loud orange)
+        let bgColor: NSColor
+        let strokeColor: NSColor
+        let iconColor: NSColor
+
+        if isPinned {
+            bgColor = isHovered ? NSColor(white: 1.0, alpha: 0.28) : NSColor(white: 1.0, alpha: 0.20)
+            strokeColor = isHovered ? NSColor(white: 1.0, alpha: 0.36) : NSColor(white: 1.0, alpha: 0.24)
+            iconColor = NSColor.white.withAlphaComponent(0.96)
         } else {
-            return Color.white.opacity(0.55)
+            bgColor = isHovered ? NSColor(white: 1.0, alpha: 0.14) : NSColor(white: 1.0, alpha: 0.07)
+            strokeColor = isHovered ? NSColor(white: 1.0, alpha: 0.18) : NSColor(white: 1.0, alpha: 0.05)
+            iconColor = isHovered ? NSColor.white.withAlphaComponent(0.92) : NSColor.white.withAlphaComponent(0.60)
         }
-    }
 
-    private var backgroundFill: Color {
-        if model.isPinned {
-            return Color.white.opacity(isButtonHovered ? 0.25 : 0.18)
-        } else if isButtonHovered {
-            return Color.white.opacity(0.12)
-        } else {
-            return Color.white.opacity(0.045)
-        }
-    }
+        bgColor.setFill()
+        path.fill()
 
-    private var borderStroke: Color {
-        if model.isPinned {
-            return Color.white.opacity(isButtonHovered ? 0.32 : 0.22)
-        } else if isButtonHovered {
-            return Color.white.opacity(0.15)
-        } else {
-            return Color.white.opacity(0.035)
-        }
-    }
+        strokeColor.setStroke()
+        path.lineWidth = 0.5
+        path.stroke()
 
-    public var body: some View {
-        ZStack {
-            // Invisible hover trigger area right next to the traffic lights
-            Color.clear
-                .frame(width: 28, height: 36)
-                .contentShape(Rectangle())
-                .onHover { isAreaHovered = $0 }
+        // Center SF Symbol pin icon inside the 14x14 button
+        let symbolName = isPinned ? "pin.fill" : "pin"
+        let pointSize: CGFloat = isPinned ? 6.5 : 7.0
+        let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: isPinned ? .semibold : .medium)
+        if let baseImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Pin")?.withSymbolConfiguration(config) {
+            let tinted = baseImage.copy() as! NSImage
+            tinted.lockFocus()
+            iconColor.set()
+            NSRect(origin: .zero, size: tinted.size).fill(using: .sourceAtop)
+            tinted.unlockFocus()
 
-            Button {
-                model.togglePin()
-            } label: {
-                buttonContent
-            }
-            .buttonStyle(.plain)
-            .onHover { isButtonHovered = $0 }
-            .opacity(shouldShow ? 1.0 : 0.0)
-            .scaleEffect(shouldShow ? 1.0 : 0.82)
-            .animation(.spring(response: 0.22, dampingFraction: 0.75), value: shouldShow)
-            .animation(.spring(response: 0.25, dampingFraction: 0.70), value: model.isPinned)
-            .help(model.isPinned ? "Unpin Window (Click to restore normal level)" : "Pin Window on Top (Always on Top)")
-        }
-    }
-
-    private var buttonContent: some View {
-        Circle()
-            .fill(backgroundFill)
-            .overlay(
-                Circle()
-                    .strokeBorder(borderStroke, lineWidth: 0.5)
+            let iconSize = tinted.size
+            let iconOrigin = NSPoint(
+                x: round((bounds.width - iconSize.width) / 2.0),
+                y: round((bounds.height - iconSize.height) / 2.0)
             )
-            .overlay(
-                Image(systemName: model.isPinned ? "pin.fill" : "pin")
-                    .font(.system(size: 7.0, weight: model.isPinned ? .semibold : .medium))
-                    .foregroundStyle(pinColor)
-                    .rotationEffect(.degrees(model.isPinned ? -30 : 0))
-            )
-            .frame(width: 14, height: 14) // Exactly 14x14 pt to match macOS traffic lights (red, yellow, green)
-            .shadow(color: model.isPinned ? Color.black.opacity(0.25) : Color.clear, radius: 1.5, y: 0.5)
-            .frame(width: 20, height: 20) // Comfortable touch/click target
-            .contentShape(Circle())
+            tinted.draw(in: NSRect(origin: iconOrigin, size: iconSize))
+        }
     }
 }
