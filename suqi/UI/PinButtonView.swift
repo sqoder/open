@@ -8,12 +8,12 @@
 import AppKit
 import SwiftUI
 
-// MARK: - Native AppKit Pin Button (1:1 with macOS Traffic Lights)
+// MARK: - Native AppKit Pin Button (Slightly larger, lower, hidden by default)
 
 public final class NativePinButtonView: NSControl {
     public weak var model: SuqiWindowModel?
-    private var isHovered: Bool = false
-    private var trackingArea: NSTrackingArea?
+    private var isAreaHovered: Bool = false
+    private var containerTrackingArea: NSTrackingArea?
 
     public var isPinned: Bool {
         model?.isPinned ?? false
@@ -22,69 +22,110 @@ public final class NativePinButtonView: NSControl {
     public override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         self.wantsLayer = true
+        self.alphaValue = 0.0 // Hidden by default ("平时是隐藏状态")
         updateTooltip()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        self.wantsLayer = true
+        self.alphaValue = 0.0
     }
 
     public func updateTooltip() {
-        self.toolTip = isPinned ? "Unpin Window" : "Pin Window on Top (Always on Top)"
+        self.toolTip = isPinned ? "Unpin Window (Click to restore normal level)" : "Pin Window on Top (Always on Top)"
     }
 
-    public override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let trackingArea {
-            removeTrackingArea(trackingArea)
+    public func updateContainerTracking() {
+        guard let container = self.superview else { return }
+        if let existing = containerTrackingArea {
+            container.removeTrackingArea(existing)
         }
+        // Hover zone encompasses the traffic lights row through the pin button (x: 0..110)
+        let hoverRect = NSRect(x: 0, y: 0, width: 110, height: container.bounds.height)
         let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            rect: hoverRect,
+            options: [.mouseEnteredAndExited, .activeAlways],
             owner: self,
             userInfo: nil
         )
-        addTrackingArea(area)
-        self.trackingArea = area
+        container.addTrackingArea(area)
+        self.containerTrackingArea = area
+    }
+
+    public override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        updateContainerTracking()
+        updateVisibility(animated: false)
     }
 
     public override func mouseEntered(with event: NSEvent) {
-        isHovered = true
+        isAreaHovered = true
+        updateVisibility(animated: true)
         needsDisplay = true
     }
 
     public override func mouseExited(with event: NSEvent) {
-        isHovered = false
+        isAreaHovered = false
+        updateVisibility(animated: true)
         needsDisplay = true
+    }
+
+    private func isMouseInHoverZone() -> Bool {
+        guard let window, let container = self.superview else { return false }
+        let screenPoint = NSEvent.mouseLocation
+        let windowPoint = window.convertPoint(fromScreen: screenPoint)
+        let mouseInContainer = container.convert(windowPoint, from: nil)
+        let hoverRect = NSRect(x: 0, y: 0, width: 110, height: container.bounds.height)
+        return NSPointInRect(mouseInContainer, hoverRect)
+    }
+
+    public func updateVisibility(animated: Bool) {
+        let shouldBeVisible = isPinned || isAreaHovered || isMouseInHoverZone()
+        let targetAlpha: CGFloat = shouldBeVisible ? 1.0 : 0.0
+
+        guard abs(self.alphaValue - targetAlpha) > 0.01 else { return }
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.16
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                self.animator().alphaValue = targetAlpha
+            }
+        } else {
+            self.alphaValue = targetAlpha
+        }
     }
 
     public override func mouseDown(with event: NSEvent) {
         guard let model else { return }
         model.togglePin()
         updateTooltip()
+        updateVisibility(animated: true)
         needsDisplay = true
     }
 
     public override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
-        // Exact circular button dimensions matching macOS traffic lights (14x14 pt)
+        let isHovered = isAreaHovered || isMouseInHoverZone()
+        // Distinct, slightly larger circle bounds (16x16 pt)
         let circleRect = bounds.insetBy(dx: 0.5, dy: 0.5)
         let path = NSBezierPath(ovalIn: circleRect)
 
-        // Minimalist monochromatic Apple styling (NO loud orange)
+        // Monochromatic Apple glass styling (NO loud orange)
         let bgColor: NSColor
         let strokeColor: NSColor
         let iconColor: NSColor
 
         if isPinned {
-            bgColor = isHovered ? NSColor(white: 1.0, alpha: 0.28) : NSColor(white: 1.0, alpha: 0.20)
-            strokeColor = isHovered ? NSColor(white: 1.0, alpha: 0.36) : NSColor(white: 1.0, alpha: 0.24)
+            bgColor = isHovered ? NSColor(white: 1.0, alpha: 0.30) : NSColor(white: 1.0, alpha: 0.22)
+            strokeColor = isHovered ? NSColor(white: 1.0, alpha: 0.40) : NSColor(white: 1.0, alpha: 0.26)
             iconColor = NSColor.white.withAlphaComponent(0.96)
         } else {
-            bgColor = isHovered ? NSColor(white: 1.0, alpha: 0.14) : NSColor(white: 1.0, alpha: 0.07)
-            strokeColor = isHovered ? NSColor(white: 1.0, alpha: 0.18) : NSColor(white: 1.0, alpha: 0.05)
-            iconColor = isHovered ? NSColor.white.withAlphaComponent(0.92) : NSColor.white.withAlphaComponent(0.60)
+            bgColor = isHovered ? NSColor(white: 1.0, alpha: 0.16) : NSColor(white: 1.0, alpha: 0.08)
+            strokeColor = isHovered ? NSColor(white: 1.0, alpha: 0.20) : NSColor(white: 1.0, alpha: 0.06)
+            iconColor = isHovered ? NSColor.white.withAlphaComponent(0.95) : NSColor.white.withAlphaComponent(0.65)
         }
 
         bgColor.setFill()
@@ -94,9 +135,9 @@ public final class NativePinButtonView: NSControl {
         path.lineWidth = 0.5
         path.stroke()
 
-        // Center SF Symbol pin icon inside the 14x14 button
+        // Larger, crisper SF Symbol pin icon (pointSize: 8.5)
         let symbolName = isPinned ? "pin.fill" : "pin"
-        let pointSize: CGFloat = isPinned ? 6.5 : 7.0
+        let pointSize: CGFloat = isPinned ? 8.0 : 8.5
         let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: isPinned ? .semibold : .medium)
         if let baseImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Pin")?.withSymbolConfiguration(config) {
             let tinted = baseImage.copy() as! NSImage
