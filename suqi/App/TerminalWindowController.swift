@@ -93,8 +93,8 @@ public final class SuqiTerminalWindow: NSWindow {
         if pinButton.superview !== container {
             container.addSubview(pinButton)
         }
-        // Center X is at 80.0 (exact 20pt rhythm from green at 60.0), width: 16.0, shifted slightly lower by 2.5pt
-        pinButton.frame = NSRect(x: 72.0, y: targetY - 2.5, width: 16.0, height: 16.0)
+        // Exact 1:1 alignment with traffic lights: same targetY baseline, height (14pt), and 20pt equidistant interval
+        pinButton.frame = NSRect(x: targetStartX + spacing * 3, y: targetY, width: 14.0, height: 14.0)
         pinButton.updateContainerTracking()
         pinButton.isHidden = (frame.width < 120)
     }

@@ -109,7 +109,7 @@ public final class NativePinButtonView: NSControl {
         super.draw(dirtyRect)
 
         let isHovered = isAreaHovered || isMouseInHoverZone()
-        // Distinct, slightly larger circle bounds (16x16 pt)
+        // Exact circular button dimensions matching macOS traffic lights (14x14 pt)
         let circleRect = bounds.insetBy(dx: 0.5, dy: 0.5)
         let path = NSBezierPath(ovalIn: circleRect)
 
@@ -135,9 +135,9 @@ public final class NativePinButtonView: NSControl {
         path.lineWidth = 0.5
         path.stroke()
 
-        // Larger, crisper SF Symbol pin icon (pointSize: 8.5)
+        // Crisp SF Symbol pin icon (pointSize: 7.0 for pinned, 7.5 for unpinned)
         let symbolName = isPinned ? "pin.fill" : "pin"
-        let pointSize: CGFloat = isPinned ? 8.0 : 8.5
+        let pointSize: CGFloat = isPinned ? 7.0 : 7.5
         let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: isPinned ? .semibold : .medium)
         if let baseImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Pin")?.withSymbolConfiguration(config) {
             let tinted = baseImage.copy() as! NSImage
