@@ -53,6 +53,9 @@ public enum TerminalActionBridge {
                 if proc.contains(kw) { return true }
             }
         }
+        if DarwinProcessHelper.hasDescendantProcess(matching: aiToolKeywords) {
+            return true
+        }
         return false
     }
 

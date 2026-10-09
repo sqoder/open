@@ -273,20 +273,26 @@ public enum DarwinProcessHelper {
         return Array(pids.prefix(Int(actual)))
     }
 
-    public static func findLatestChildCwd(for parentPid: pid_t = getpid()) -> String? {
-        let children = getChildPids(for: parentPid)
-        for child in children.reversed() {
-            let grandChildren = getChildPids(for: child)
-            for grandChild in grandChildren.reversed() {
-                if let cwd = getCwd(for: grandChild), !cwd.isEmpty {
+    private static let shellProcessNames: Set<String> = [
+        "zsh", "bash", "fish", "sh", "tcsh", "csh", "ksh", "login",
+        "-zsh", "-bash", "-fish", "suqi", "ghostty"
+    ]
+
+    public static func findLatestChildCwd(for parentPid: pid_t = getpid(), maxDepth: Int = 6) -> String? {
+        func search(pid: pid_t, depth: Int) -> String? {
+            guard depth <= maxDepth else { return nil }
+            let children = getChildPids(for: pid)
+            for child in children.reversed() {
+                if let found = search(pid: child, depth: depth + 1) {
+                    return found
+                }
+                if let cwd = getCwd(for: child), !cwd.isEmpty {
                     return cwd
                 }
             }
-            if let cwd = getCwd(for: child), !cwd.isEmpty {
-                return cwd
-            }
+            return nil
         }
-        return nil
+        return search(pid: parentPid, depth: 1)
     }
 
     public static func getProcessName(for pid: pid_t) -> String? {
@@ -300,20 +306,42 @@ public enum DarwinProcessHelper {
         return nil
     }
 
-    public static func findLatestChildProcessName(for parentPid: pid_t = getpid()) -> String? {
-        let children = getChildPids(for: parentPid)
-        for child in children.reversed() {
-            let grandChildren = getChildPids(for: child)
-            for grandChild in grandChildren.reversed() {
-                if let name = getProcessName(for: grandChild), !name.isEmpty {
-                    return name
+    public static func findLatestChildProcessName(for parentPid: pid_t = getpid(), maxDepth: Int = 6) -> String? {
+        func search(pid: pid_t, depth: Int) -> String? {
+            guard depth <= maxDepth else { return nil }
+            let children = getChildPids(for: pid)
+            for child in children.reversed() {
+                let rawName = getProcessName(for: child)
+                let clean = rawName?.lowercased() ?? ""
+                if !clean.isEmpty && !shellProcessNames.contains(clean) {
+                    return rawName
+                }
+                if let found = search(pid: child, depth: depth + 1) {
+                    return found
                 }
             }
-            if let name = getProcessName(for: child), !name.isEmpty {
-                return name
-            }
+            return nil
         }
-        return nil
+        return search(pid: parentPid, depth: 1)
+    }
+
+    public static func hasDescendantProcess(for parentPid: pid_t = getpid(), matching keywords: Set<String>, maxDepth: Int = 6) -> Bool {
+        func search(pid: pid_t, depth: Int) -> Bool {
+            guard depth <= maxDepth else { return false }
+            let children = getChildPids(for: pid)
+            for child in children {
+                if let rawName = getProcessName(for: child)?.lowercased() {
+                    for kw in keywords {
+                        if rawName.contains(kw) { return true }
+                    }
+                }
+                if search(pid: child, depth: depth + 1) {
+                    return true
+                }
+            }
+            return false
+        }
+        return search(pid: parentPid, depth: 1)
     }
 }
 #endif

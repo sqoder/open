@@ -387,7 +387,7 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
             workingDirectory: resolvedDir,
             envVars: [
                 "TERM_PROGRAM": "suqi",
-                "TERM_PROGRAM_VERSION": "0.0.22"
+                "TERM_PROGRAM_VERSION": "0.0.23"
             ]
         )
 
