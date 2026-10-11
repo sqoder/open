@@ -21,11 +21,11 @@
 
 ## 📥 Download
 
-Pre-built Universal DMG (Apple Silicon & Intel) for macOS 14.0 (Sonoma) and newer:
+Pre-built DMG installer (`v0.0.614`, ultra-slim `16.2 MB`) for macOS 14.0 (Sonoma) and newer:
 
-| Platform | Architecture | System | Package |
+| Platform | Version | System | Package |
 |---|---|---|---|
-| **macOS** | Universal (arm64 + x86_64) | macOS 14.0+ | [**Download Glint.dmg**](./Glint.dmg) |
+| **macOS** | `v0.0.614` | macOS 14.0+ | [**Download Glint.dmg**](./Glint.dmg) |
 
 ---
 
@@ -48,9 +48,9 @@ Pre-built Universal DMG (Apple Silicon & Intel) for macOS 14.0 (Sonoma) and newe
 ## ✨ Key Features
 
 ### 🏝️ Dynamic Island & Hardware Notch Hub
-- Seamlessly fuses with MacBook Pro hardware notches and external displays with Metal liquid glass shaders.
-- **Live Media Player**: Real-time album artwork, track progress, dynamic audio waveforms, and playback controls.
-- **Integrated Tool Dock**: Quick access to App Launcher, Calendar, Weather, Caffeine sleep prevention, and Notes.
+- Seamlessly fuses with MacBook Pro hardware notches and external displays with 120 FPS Metal liquid glass shaders and zero-pause spring physics.
+- **Universal Media & Video Controller**: Real-time artwork, synchronized lyrics, dynamic audio waveforms, playback controls, and one-click window/tab jump across Apple Music, NetEase Music, QQ Music, Spotify, Kugou, Kuwo, YouTube, Bilibili, Youku, Tencent Video, iQIYI, Instagram, Safari, Chrome, Arc, and Edge.
+- **Integrated App Library & Tool Dock**: Quick access to 3D Flip Clock & Daily Quotes, Ghostty/Suqi GPU Terminal, Clean Desktop toggle, Native Color Picker, File Shelf, Calendar, Weather, Caffeine sleep prevention, Health Reminder, and Instant Notes.
 
 ### 📸 Smart Capture & Professional Annotation
 - **Sub-Pixel Snapping & Magnifier**: Instant window and element snapping with precise RGB / HEX color picker.
