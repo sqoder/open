@@ -290,7 +290,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = suqi/Resources/suqi.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 23;
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 24;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_POSTPROCESSING = YES;
+				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = suqi/Resources/Info.plist;
@@ -298,10 +303,12 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.0.23;
+				MARKETING_VERSION = 0.0.24;
 				PRODUCT_BUNDLE_IDENTIFIER = com.suqi.terminal;
 				PRODUCT_NAME = suqi;
 				SDKROOT = macosx;
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = "non-global";
 			};
 			name = Debug;
 		};
@@ -376,7 +383,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = suqi/Resources/suqi.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 23;
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 24;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_POSTPROCESSING = YES;
+				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = suqi/Resources/Info.plist;
@@ -384,10 +396,12 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.0.23;
+				MARKETING_VERSION = 0.0.24;
 				PRODUCT_BUNDLE_IDENTIFIER = com.suqi.terminal;
 				PRODUCT_NAME = suqi;
 				SDKROOT = macosx;
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = "non-global";
 			};
 			name = Release;
 		};

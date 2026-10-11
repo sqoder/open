@@ -9,6 +9,24 @@
   Designed for modern developers and AI CLI workflows with seamless <code>⌘V</code> multimodal image pasting and drag-and-drop.
 </p>
 
+<p align="center">
+  <a href="#-download">Download DMG</a> •
+  <a href="#-highlights">Highlights</a> •
+  <a href="#️-essential-shortcuts">Shortcuts</a> •
+  <a href="#️-configuration">Configuration</a> •
+  <a href="#-building--installation">Build</a>
+</p>
+
+---
+
+## 📥 Download
+
+Pre-built DMG installer for macOS 14.0 (Sonoma) and newer:
+
+| Platform | Version | System | Package |
+|---|---|---|---|
+| **macOS** | `v0.0.24` | macOS 14.0+ | [**Download Suqi.dmg**](./Suqi.dmg) |
+
 ---
 
 ## ⚡ Highlights
@@ -72,7 +90,7 @@ copy-on-select = clipboard
 
 ```bash
 # Clone repository
-git clone https://github.com/sqoder/glint.git suqi
+git clone https://github.com/sqoder/open.git suqi
 cd suqi
 git checkout suqi
 
