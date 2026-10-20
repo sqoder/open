@@ -23,10 +23,140 @@ struct MonitoredInstance {
     var modelName: String = "Gemini 3.8 Flash (High)"
 }
 
+// MARK: - Premium Hero Card View
+class HeroCardView: NSView {
+    private let avatarImageView = NSImageView()
+    private let titleLabel = NSTextField(labelWithString: "momi")
+    private let versionLabel = NSTextField(labelWithString: "v1.2.0")
+    private let statusDot = NSTextField(labelWithString: "●")
+    private let statusLabel = NSTextField(labelWithString: "Antigravity")
+    
+    private let speedLabel = NSTextField(labelWithString: "--")
+    private let unitLabel = NSTextField(labelWithString: "tok/s")
+    private let metadataLabel = NSTextField(labelWithString: "等待活动...")
+    
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        setupUI()
+    }
+    
+    required init?(coder: NSCoder) { fatalError() }
+    
+    private func setupUI() {
+        wantsLayer = true
+        
+        // Avatar
+        avatarImageView.translatesAutoresizingMaskIntoConstraints = false
+        avatarImageView.wantsLayer = true
+        avatarImageView.layer?.cornerRadius = 5
+        avatarImageView.layer?.masksToBounds = true
+        addSubview(avatarImageView)
+        
+        // Title
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .bold)
+        titleLabel.textColor = .labelColor
+        addSubview(titleLabel)
+        
+        // Version
+        versionLabel.translatesAutoresizingMaskIntoConstraints = false
+        versionLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        versionLabel.textColor = .tertiaryLabelColor
+        addSubview(versionLabel)
+        
+        // Status Dot & Label
+        statusDot.translatesAutoresizingMaskIntoConstraints = false
+        statusDot.font = NSFont.systemFont(ofSize: 8, weight: .bold)
+        statusDot.textColor = .systemGreen
+        addSubview(statusDot)
+        
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        statusLabel.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        statusLabel.textColor = .secondaryLabelColor
+        addSubview(statusLabel)
+        
+        // Speed & Unit
+        speedLabel.translatesAutoresizingMaskIntoConstraints = false
+        speedLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 34, weight: .bold)
+        speedLabel.textColor = .labelColor
+        addSubview(speedLabel)
+        
+        unitLabel.translatesAutoresizingMaskIntoConstraints = false
+        unitLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        unitLabel.textColor = .secondaryLabelColor
+        addSubview(unitLabel)
+        
+        // Metadata
+        metadataLabel.translatesAutoresizingMaskIntoConstraints = false
+        metadataLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        metadataLabel.textColor = .secondaryLabelColor
+        addSubview(metadataLabel)
+        
+        NSLayoutConstraint.activate([
+            // Row 1
+            avatarImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
+            avatarImageView.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+            avatarImageView.widthAnchor.constraint(equalToConstant: 22),
+            avatarImageView.heightAnchor.constraint(equalToConstant: 22),
+            
+            titleLabel.leadingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: 8),
+            titleLabel.centerYAnchor.constraint(equalTo: avatarImageView.centerYAnchor),
+            
+            versionLabel.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 6),
+            versionLabel.firstBaselineAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor),
+            
+            statusLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
+            statusLabel.centerYAnchor.constraint(equalTo: avatarImageView.centerYAnchor),
+            
+            statusDot.trailingAnchor.constraint(equalTo: statusLabel.leadingAnchor, constant: -4),
+            statusDot.centerYAnchor.constraint(equalTo: statusLabel.centerYAnchor, constant: -0.5),
+            
+            // Row 2: Speed
+            speedLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
+            speedLabel.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 8),
+            
+            unitLabel.leadingAnchor.constraint(equalTo: speedLabel.trailingAnchor, constant: 5),
+            unitLabel.firstBaselineAnchor.constraint(equalTo: speedLabel.firstBaselineAnchor),
+            
+            // Row 3: Metadata
+            metadataLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
+            metadataLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
+            metadataLabel.topAnchor.constraint(equalTo: speedLabel.bottomAnchor, constant: 4),
+            metadataLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12)
+        ])
+    }
+    
+    func configure(avatar: NSImage?, speed: Double?, tokens: Int?, duration: Double?, model: String, source: String, isGenerating: Bool) {
+        if let img = avatar {
+            avatarImageView.image = img
+        }
+        
+        if isGenerating {
+            statusDot.textColor = .systemOrange
+            statusLabel.stringValue = "生成中 · \(source)"
+        } else {
+            statusDot.textColor = .systemGreen
+            statusLabel.stringValue = source
+        }
+        
+        if let spd = speed, spd > 0 {
+            speedLabel.stringValue = String(format: "%.1f", spd)
+            let tokStr = tokens != nil ? "\(tokens!) tok" : ""
+            let durStr = duration != nil ? String(format: "%.1fs", duration!) : ""
+            metadataLabel.stringValue = "\(tokStr) · \(durStr) · \(model)"
+        } else {
+            speedLabel.stringValue = "--"
+            metadataLabel.stringValue = "等待生成 · \(model)"
+        }
+    }
+}
+
+// MARK: - App Delegate
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var updateTimer: Timer?
     var avatarImage: NSImage?
+    var heroCardView = HeroCardView(frame: NSRect(x: 0, y: 0, width: 290, height: 110))
     
     var instances: [MonitoredInstance] = []
     var activeInstanceIndex: Int = 0
@@ -38,7 +168,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Load avatar icon
         if let iconPath = Bundle.main.path(forResource: "AppIcon", ofType: "icns"),
            let img = NSImage(contentsOfFile: iconPath) {
-            img.size = NSSize(width: 28, height: 28)
+            img.size = NSSize(width: 22, height: 22)
             avatarImage = img
         }
         
@@ -97,7 +227,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return nil
     }
     
-    /// Reads only the tail (64KB) to avoid loading giant files into RAM
+    /// Reads only tail of the file (64KB)
     func readTail(url: URL, maxBytes: UInt64 = 65536) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
@@ -128,7 +258,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
                 steps.append(json)
                 
-                // Try extract model name
+                // Extract model name
                 if detectedModel == nil, let contentStr = json["content"] as? String {
                     if let range = contentStr.range(of: "Model Selection` from None to ") {
                         let substr = contentStr[range.upperBound...]
@@ -201,8 +331,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // 2. Determine active instance:
-        // Priority A: generating instance
-        // Priority B: most recently modified instance
         var bestIndex = 0
         var bestDate: Date = .distantPast
         var anyGenerating = false
@@ -224,7 +352,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 3. Update status bar button
         if let last = active.records.last {
             if anyGenerating {
-                statusItem.button?.title = String(format: "⚡ %.1f t/s [生成中·%@]", last.tps, active.shortTag)
+                statusItem.button?.title = String(format: "⚡ %.1f t/s · 生成中", last.tps)
             } else {
                 statusItem.button?.title = String(format: "⚡ %.1f tok/s", last.tps)
             }
@@ -238,146 +366,124 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func rebuildMenu() {
         let menu = NSMenu()
         let active = instances[activeInstanceIndex]
+        let last = active.records.last
         
-        // Header
-        let headerItem = NSMenuItem(title: "  momi · AI 实时测速仪", action: nil, keyEquivalent: "")
-        headerItem.attributedTitle = NSAttributedString(string: "  momi · AI 实时测速仪  v1.1.0", attributes: [
-            .font: NSFont.boldSystemFont(ofSize: 13)
-        ])
-        if let img = avatarImage {
-            headerItem.image = img
-        }
-        menu.addItem(headerItem)
+        // 1. Hero Card View
+        heroCardView.configure(
+            avatar: avatarImage,
+            speed: last?.tps,
+            tokens: last?.tokens,
+            duration: last?.duration,
+            model: active.modelName,
+            source: active.shortTag,
+            isGenerating: active.isGenerating
+        )
+        let cardItem = NSMenuItem()
+        cardItem.view = heroCardView
+        menu.addItem(cardItem)
         
-        let sourceStatus = active.isGenerating ? "🟢 正在生成 (实时监听)" : "🟢 活跃监听中"
-        let sourceItem = NSMenuItem(title: "\(sourceStatus): \(active.name)", action: nil, keyEquivalent: "")
-        sourceItem.attributedTitle = NSAttributedString(string: "\(sourceStatus): \(active.name)", attributes: [
-            .font: NSFont.systemFont(ofSize: 12),
+        menu.addItem(NSMenuItem.separator())
+        
+        // 2. Tabular History Section
+        let historyTitle = NSMenuItem(title: "最近生成明细 (RECENT THROUGHPUT)", action: nil, keyEquivalent: "")
+        historyTitle.attributedTitle = NSAttributedString(string: "最近吞吐明细", attributes: [
+            .font: NSFont.systemFont(ofSize: 10, weight: .bold),
             .foregroundColor: NSColor.secondaryLabelColor
         ])
-        menu.addItem(sourceItem)
+        historyTitle.isEnabled = false
+        menu.addItem(historyTitle)
         
-        menu.addItem(NSMenuItem.separator())
-        
-        // Current active instance metrics
-        if let last = active.records.last {
-            let speedText = String(format: "当前速度:  %.1f tokens/s", last.tps)
-            let speedItem = NSMenuItem(title: speedText, action: nil, keyEquivalent: "")
-            speedItem.attributedTitle = NSAttributedString(string: speedText, attributes: [
-                .font: NSFont.boldSystemFont(ofSize: 13),
-                .foregroundColor: NSColor.systemGreen
-            ])
-            menu.addItem(speedItem)
-            
-            let detailItem = NSMenuItem(title: String(format: "上次耗时:  %.1fs · %d tokens", last.duration, last.tokens), action: nil, keyEquivalent: "")
-            menu.addItem(detailItem)
-        }
-        
-        menu.addItem(NSMenuItem(title: "当前模型:  \(active.modelName)", action: nil, keyEquivalent: ""))
-        
-        if let url = active.latestURL {
-            let sessionID = url.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().lastPathComponent
-            let shortID = sessionID.count > 12 ? String(sessionID.prefix(12)) + "..." : sessionID
-            menu.addItem(NSMenuItem(title: "会话 ID:  \(shortID)", action: nil, keyEquivalent: ""))
-        }
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // Multi-instance status overview
-        let instHeader = NSMenuItem(title: "📱 监听中的实例:", action: nil, keyEquivalent: "")
-        instHeader.attributedTitle = NSAttributedString(string: "📱 监听中的实例:", attributes: [
-            .font: NSFont.boldSystemFont(ofSize: 12)
+        let colsTitle = NSMenuItem(title: "    序号       分词       耗时          速率", action: nil, keyEquivalent: "")
+        colsTitle.attributedTitle = NSAttributedString(string: "    序号       分词       耗时          速率", attributes: [
+            .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .medium),
+            .foregroundColor: NSColor.tertiaryLabelColor
         ])
-        menu.addItem(instHeader)
-        
-        let now = Date()
-        for (idx, inst) in instances.enumerated() {
-            let isActive = (idx == activeInstanceIndex)
-            let icon: String
-            let desc: String
-            
-            if inst.isGenerating {
-                icon = "🔥"
-                desc = "生成中..."
-            } else if isActive {
-                icon = "🟢"
-                if let r = inst.records.last {
-                    desc = String(format: "活跃 · %.1f t/s", r.tps)
-                } else {
-                    desc = "活跃"
-                }
-            } else if inst.latestModDate != .distantPast {
-                let diffMins = Int(now.timeIntervalSince(inst.latestModDate) / 60)
-                icon = "⚪"
-                if diffMins < 60 {
-                    desc = "\(diffMins) 分钟前"
-                } else {
-                    let diffHours = diffMins / 60
-                    desc = "\(diffHours) 小时前"
-                }
-            } else {
-                icon = "⚪"
-                desc = "无记录 / 离线"
-            }
-            
-            let title = String(format: "  %@ %@: %@", icon, inst.name, desc)
-            let item = NSMenuItem(title: title, action: #selector(switchInstanceAction(_:)), keyEquivalent: "")
-            item.tag = idx
-            item.target = self
-            if isActive {
-                item.attributedTitle = NSAttributedString(string: title, attributes: [
-                    .font: NSFont.boldSystemFont(ofSize: 11),
-                    .foregroundColor: NSColor.labelColor
-                ])
-            } else {
-                item.attributedTitle = NSAttributedString(string: title, attributes: [
-                    .font: NSFont.systemFont(ofSize: 11),
-                    .foregroundColor: NSColor.secondaryLabelColor
-                ])
-            }
-            menu.addItem(item)
-        }
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // History section of active instance
-        let historyTitle = "📊 最近生成记录 (\(active.shortTag)):"
-        let historyHeader = NSMenuItem(title: historyTitle, action: nil, keyEquivalent: "")
-        historyHeader.attributedTitle = NSAttributedString(string: historyTitle, attributes: [
-            .font: NSFont.boldSystemFont(ofSize: 12)
-        ])
-        menu.addItem(historyHeader)
+        colsTitle.isEnabled = false
+        menu.addItem(colsTitle)
         
         let recent = active.records.suffix(5).reversed()
         if recent.isEmpty {
-            let emptyItem = NSMenuItem(title: "  暂无记录", action: nil, keyEquivalent: "")
+            let emptyItem = NSMenuItem(title: "    暂无已完成的生成记录", action: nil, keyEquivalent: "")
+            emptyItem.attributedTitle = NSAttributedString(string: "    暂无已完成的生成记录", attributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .regular),
+                .foregroundColor: NSColor.secondaryLabelColor
+            ])
             emptyItem.isEnabled = false
             menu.addItem(emptyItem)
         } else {
             for (idx, r) in recent.enumerated() {
-                let text = String(format: "  %d. %d tok · %.1fs → %.1f tok/s", idx + 1, r.tokens, r.duration, r.tps)
+                // Aligned tabular row
+                let text = String(format: "    #%-2d   %5d tok   %5.1fs   %6.1f tok/s", idx + 1, r.tokens, r.duration, r.tps)
                 let item = NSMenuItem(title: text, action: nil, keyEquivalent: "")
                 item.attributedTitle = NSAttributedString(string: text, attributes: [
-                    .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
+                    .foregroundColor: NSColor.labelColor
                 ])
+                item.isEnabled = false
                 menu.addItem(item)
             }
         }
         
         menu.addItem(NSMenuItem.separator())
         
-        // Actions
-        let refreshItem = NSMenuItem(title: "🔄 立即刷新", action: #selector(refreshAction), keyEquivalent: "r")
+        // 3. Instance Switcher Submenu (Clean, never cluttered)
+        let now = Date()
+        let instanceMenuTitle = "监听实例: \(active.name)"
+        let instanceMenuItem = NSMenuItem(title: instanceMenuTitle, action: nil, keyEquivalent: "")
+        instanceMenuItem.attributedTitle = NSAttributedString(string: instanceMenuTitle, attributes: [
+            .font: NSFont.systemFont(ofSize: 12, weight: .regular),
+            .foregroundColor: NSColor.labelColor
+        ])
+        
+        let subMenu = NSMenu()
+        for (idx, inst) in instances.enumerated() {
+            let isCur = (idx == activeInstanceIndex)
+            let check = isCur ? "✓ " : "    "
+            let statusDesc: String
+            
+            if inst.isGenerating {
+                statusDesc = "生成中..."
+            } else if isCur {
+                statusDesc = "当前活跃"
+            } else if inst.latestModDate != .distantPast {
+                let diffMins = Int(now.timeIntervalSince(inst.latestModDate) / 60)
+                if diffMins < 60 {
+                    statusDesc = "\(diffMins) 分钟前"
+                } else if diffMins < 1440 {
+                    statusDesc = "\(diffMins / 60) 小时前"
+                } else {
+                    statusDesc = "离线"
+                }
+            } else {
+                statusDesc = "离线"
+            }
+            
+            let item = NSMenuItem(
+                title: "\(check)\(inst.name) (\(statusDesc))",
+                action: #selector(switchInstanceAction(_:)),
+                keyEquivalent: ""
+            )
+            item.tag = idx
+            item.target = self
+            subMenu.addItem(item)
+        }
+        instanceMenuItem.submenu = subMenu
+        menu.addItem(instanceMenuItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // 4. Clean Native Actions (No emojis, Apple-standard styling)
+        let refreshItem = NSMenuItem(title: "刷新数据", action: #selector(refreshAction), keyEquivalent: "r")
         refreshItem.target = self
         menu.addItem(refreshItem)
         
-        let openDirItem = NSMenuItem(title: "📂 打开当前会话目录", action: #selector(openLogDirAction), keyEquivalent: "o")
+        let openDirItem = NSMenuItem(title: "在访达中显示会话日志", action: #selector(openLogDirAction), keyEquivalent: "o")
         openDirItem.target = self
         menu.addItem(openDirItem)
         
         menu.addItem(NSMenuItem.separator())
         
-        let quitItem = NSMenuItem(title: "❌ 退出 momi", action: #selector(quitAction), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "退出 momi", action: #selector(quitAction), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
         
