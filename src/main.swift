@@ -19,6 +19,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentModelName: String = "Gemini 3.8 Flash (High)"
     var avatarImage: NSImage?
     
+    // Cache guards to prevent wasted CPU & memory
+    var lastParsedModDate: Date = .distantPast
+    var lastParsedURL: URL? = nil
+    var lastIsGenerating: Bool = false
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "⚡ momi"
@@ -68,9 +73,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return nil
     }
     
+    /// Reads only the tail of the file (max 64KB) to avoid loading massive files into RAM
+    func readTail(url: URL, maxBytes: UInt64 = 65536) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        let fileSize = handle.seekToEndOfFile()
+        let offset = fileSize > maxBytes ? fileSize - maxBytes : 0
+        handle.seek(toFileOffset: offset)
+        let data = handle.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8)
+    }
+    
     func parseTranscript(url: URL, fileModDate: Date) -> (records: [TokenRecord], model: String?) {
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else { return ([], nil) }
-        let lines = content.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        guard let content = readTail(url: url) else { return ([], nil) }
+        let rawLines = content.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        
+        // If we read from the middle of a file, drop the very first line if it's incomplete JSON
+        let lines: [String]
+        if rawLines.count > 1 && !rawLines[0].hasPrefix("{") {
+            lines = Array(rawLines.dropFirst())
+        } else {
+            lines = rawLines
+        }
         
         let isoFormatter = ISO8601DateFormatter()
         var steps: [[String: Any]] = []
@@ -134,16 +158,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         
+        let isGenerating = Date().timeIntervalSince(latest.modDate) < 2.0
+        
+        // Zero-waste guard: if the file hasn't changed and generation state hasn't changed, skip parsing!
+        if latest.url == lastParsedURL &&
+           latest.modDate == lastParsedModDate &&
+           isGenerating == lastIsGenerating {
+            return
+        }
+        
+        lastParsedURL = latest.url
+        lastParsedModDate = latest.modDate
+        lastIsGenerating = isGenerating
         lastTranscriptURL = latest.url
+        
         let (records, model) = parseTranscript(url: latest.url, fileModDate: latest.modDate)
         if let model = model {
             currentModelName = model
         }
-        lastRecords = records
+        if !records.isEmpty {
+            lastRecords = records
+        }
         
-        let isGenerating = Date().timeIntervalSince(latest.modDate) < 2.0
-        
-        if let last = records.last {
+        if let last = lastRecords.last {
             if isGenerating {
                 statusItem.button?.title = String(format: "⚡ %.1f t/s (生成中)", last.tps)
             } else {
@@ -244,6 +281,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc func refreshAction() {
+        lastParsedModDate = .distantPast
         updateMetrics()
     }
     
