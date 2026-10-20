@@ -23,22 +23,9 @@ struct MonitoredInstance {
     var modelName: String = "Gemini 3.8 Flash (High)"
 }
 
-func roundedImage(image: NSImage, cornerRadius: CGFloat) -> NSImage {
-    let imageSize = image.size
-    let newImage = NSImage(size: imageSize)
-    newImage.lockFocus()
-    let rect = NSRect(origin: .zero, size: imageSize)
-    let path = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
-    path.addClip()
-    image.draw(in: rect)
-    newImage.unlockFocus()
-    return newImage
-}
-
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var updateTimer: Timer?
-    var menubarIcon: NSImage?
     
     var instances: [MonitoredInstance] = []
     var activeInstanceIndex: Int = 0
@@ -47,17 +34,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
-        // Custom avatar icon with soft rounded corners
-        if let iconPath = Bundle.main.path(forResource: "menubar_icon", ofType: "png"),
-           let img = NSImage(contentsOfFile: iconPath) {
-            img.size = NSSize(width: 16, height: 16)
-            let rounded = roundedImage(image: img, cornerRadius: 3.5)
-            menubarIcon = rounded
-            statusItem.button?.image = rounded
-            statusItem.button?.imagePosition = .imageLeft
-        }
-        
-        statusItem.button?.title = " momi"
+        // Pure speed text only, no menu bar icon
+        statusItem.button?.image = nil
+        statusItem.button?.title = "-- tok/s"
         
         let home = FileManager.default.homeDirectoryForCurrentUser
         instances = [
@@ -262,15 +241,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 
                 let active = self.instances[self.activeInstanceIndex]
                 
-                // Update status bar button
+                // Update status bar text (speed only, no leading space or icon)
                 if let last = active.records.last {
                     if anyGenerating {
-                        self.statusItem.button?.title = String(format: " %.1f t/s · 生成中", last.tps)
+                        self.statusItem.button?.title = String(format: "%.1f t/s · 生成中", last.tps)
                     } else {
-                        self.statusItem.button?.title = String(format: " %.1f tok/s", last.tps)
+                        self.statusItem.button?.title = String(format: "%.1f tok/s", last.tps)
                     }
                 } else {
-                    self.statusItem.button?.title = " momi"
+                    self.statusItem.button?.title = "-- tok/s"
                 }
                 
                 if hasChanges {
