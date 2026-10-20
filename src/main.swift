@@ -25,145 +25,38 @@ struct MonitoredInstance {
     var modelName: String = "Gemini 3.8 Flash"
 }
 
-// MARK: - UI Components: Rounded Card View
-
-class RoundedCardView: NSView {
-    var customBgColor: NSColor
-    var customBorderColor: NSColor
-    var cornerRadius: CGFloat
-    
-    init(frame: NSRect = .zero, bgColor: NSColor, borderColor: NSColor, cornerRadius: CGFloat = 10) {
-        self.customBgColor = bgColor
-        self.customBorderColor = borderColor
-        self.cornerRadius = cornerRadius
-        super.init(frame: frame)
-    }
-    
-    required init?(coder: NSCoder) { fatalError() }
-    
-    override func draw(_ dirtyRect: NSRect) {
-        let path = NSBezierPath(roundedRect: bounds, xRadius: cornerRadius, yRadius: cornerRadius)
-        customBgColor.setFill()
-        path.fill()
-        customBorderColor.setStroke()
-        path.lineWidth = 1
-        path.stroke()
-    }
-}
-
-// MARK: - UI Components: Pill Badge View
-
-class PillBadgeView: NSView {
-    private let label = NSTextField(labelWithString: "")
-    var bgColor: NSColor
-    var cornerRadius: CGFloat
-    
-    init(text: String, font: NSFont, textColor: NSColor, bgColor: NSColor, cornerRadius: CGFloat = 5) {
-        self.bgColor = bgColor
-        self.cornerRadius = cornerRadius
-        super.init(frame: .zero)
-        
-        label.stringValue = text
-        label.font = font
-        label.textColor = textColor
-        label.alignment = .center
-        label.lineBreakMode = .byTruncatingTail
-        label.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(label)
-        
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
-            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor)
-        ])
-    }
-    
-    func update(text: String, textColor: NSColor? = nil, bgColor: NSColor? = nil) {
-        label.stringValue = text
-        if let textColor = textColor {
-            label.textColor = textColor
-        }
-        if let bgColor = bgColor {
-            self.bgColor = bgColor
-        }
-        needsDisplay = true
-    }
-    
-    required init?(coder: NSCoder) { fatalError() }
-    
-    override func draw(_ dirtyRect: NSRect) {
-        let path = NSBezierPath(roundedRect: bounds, xRadius: cornerRadius, yRadius: cornerRadius)
-        bgColor.setFill()
-        path.fill()
-        super.draw(dirtyRect)
-    }
-}
-
-// MARK: - Dashboard Card View (Custom NSView for NSMenuItem)
+// MARK: - Native macOS Dashboard View (Clean, Professional, No Toy Emojis)
 
 class MomiDashboardView: NSView {
-    // --- Top Hero Card ---
-    private let heroCard = RoundedCardView(
-        bgColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.06) : NSColor(white: 0.0, alpha: 0.04) },
-        borderColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.12) : NSColor(white: 0.0, alpha: 0.08) },
-        cornerRadius: 10
-    )
+    // 1. Header Row
+    private let instanceLabel = NSTextField(labelWithString: "Antigravity Desktop")
+    private let statusDot = NSTextField(labelWithString: "●")
+    private let statusText = NSTextField(labelWithString: "待命")
     
-    private let instanceBadge = PillBadgeView(
-        text: "⚡ Antigravity",
-        font: .systemFont(ofSize: 10, weight: .semibold),
-        textColor: NSColor.secondaryLabelColor,
-        bgColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.08) : NSColor(white: 0.0, alpha: 0.06) },
-        cornerRadius: 5
-    )
+    // 2. Primary Hero Metric
+    private let speedNumber = NSTextField(labelWithString: "--")
+    private let speedUnit = NSTextField(labelWithString: "tok/s")
     
-    private let statusBadge = PillBadgeView(
-        text: "● 待命",
-        font: .systemFont(ofSize: 10, weight: .bold),
-        textColor: NSColor.secondaryLabelColor,
-        bgColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.08) : NSColor(white: 0.0, alpha: 0.06) },
-        cornerRadius: 5
-    )
+    // 3. Three-Column Metric Grid
+    private let durTitle = NSTextField(labelWithString: "上次耗时")
+    private let durValue = NSTextField(labelWithString: "--")
     
-    private let speedLabel = NSTextField(labelWithString: "--")
-    private let unitLabel = NSTextField(labelWithString: "tok/s")
+    private let tokTitle = NSTextField(labelWithString: "生成词数")
+    private let tokValue = NSTextField(labelWithString: "--")
     
-    private let durationChip = PillBadgeView(
-        text: "⏱ --s",
-        font: .monospacedDigitSystemFont(ofSize: 10.5, weight: .medium),
-        textColor: NSColor.secondaryLabelColor,
-        bgColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.06) : NSColor(white: 0.0, alpha: 0.05) },
-        cornerRadius: 4
-    )
-    private let tokensChip = PillBadgeView(
-        text: "📊 -- tok",
-        font: .monospacedDigitSystemFont(ofSize: 10.5, weight: .medium),
-        textColor: NSColor.secondaryLabelColor,
-        bgColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.06) : NSColor(white: 0.0, alpha: 0.05) },
-        cornerRadius: 4
-    )
-    private let modelChip = PillBadgeView(
-        text: "🧠 --",
-        font: .systemFont(ofSize: 10.5, weight: .medium),
-        textColor: NSColor.secondaryLabelColor,
-        bgColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.06) : NSColor(white: 0.0, alpha: 0.05) },
-        cornerRadius: 4
-    )
+    private let modelTitle = NSTextField(labelWithString: "活动模型")
+    private let modelValue = NSTextField(labelWithString: "--")
     
-    // --- History Section ---
-    private let historyTitle = NSTextField(labelWithString: "最近吞吐记录")
-    private let historySub = NSTextField(labelWithString: "近 5 轮")
-    private let historyCard = RoundedCardView(
-        bgColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.04) : NSColor(white: 0.0, alpha: 0.03) },
-        borderColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.1) : NSColor(white: 0.0, alpha: 0.07) },
-        cornerRadius: 9
-    )
+    // 4. Subtle Hairline Divider
+    private let divider = NSBox()
     
-    private let tableStack = NSStackView()
+    // 5. History Section
+    private let historyTitle = NSTextField(labelWithString: "最近吞吐流水")
+    private let historyTableStack = NSStackView()
     private let emptyLabel = NSTextField(labelWithString: "暂无已完成的生成记录")
     
     init() {
-        super.init(frame: NSRect(x: 0, y: 0, width: 320, height: 295))
+        super.init(frame: NSRect(x: 0, y: 0, width: 300, height: 275))
         setupUI()
     }
     
@@ -172,215 +65,241 @@ class MomiDashboardView: NSView {
     private func setupUI() {
         wantsLayer = true
         
-        // 1. Hero Card
-        heroCard.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(heroCard)
+        // --- 1. Header Row ---
+        instanceLabel.font = .systemFont(ofSize: 11, weight: .medium)
+        instanceLabel.textColor = .secondaryLabelColor
+        instanceLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(instanceLabel)
         
-        instanceBadge.translatesAutoresizingMaskIntoConstraints = false
-        heroCard.addSubview(instanceBadge)
+        statusDot.font = .systemFont(ofSize: 8, weight: .bold)
+        statusDot.textColor = .tertiaryLabelColor
+        statusDot.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(statusDot)
         
-        statusBadge.translatesAutoresizingMaskIntoConstraints = false
-        heroCard.addSubview(statusBadge)
+        statusText.font = .systemFont(ofSize: 11, weight: .regular)
+        statusText.textColor = .secondaryLabelColor
+        statusText.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(statusText)
         
-        speedLabel.translatesAutoresizingMaskIntoConstraints = false
-        speedLabel.font = .monospacedDigitSystemFont(ofSize: 34, weight: .bold)
-        speedLabel.textColor = NSColor(red: 0.22, green: 0.85, blue: 0.52, alpha: 1.0)
-        heroCard.addSubview(speedLabel)
+        // --- 2. Speed Hero ---
+        speedNumber.font = .monospacedDigitSystemFont(ofSize: 34, weight: .semibold)
+        speedNumber.textColor = .labelColor
+        speedNumber.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(speedNumber)
         
-        unitLabel.translatesAutoresizingMaskIntoConstraints = false
-        unitLabel.font = .systemFont(ofSize: 13, weight: .medium)
-        unitLabel.textColor = NSColor.secondaryLabelColor
-        heroCard.addSubview(unitLabel)
+        speedUnit.font = .systemFont(ofSize: 13, weight: .regular)
+        speedUnit.textColor = .secondaryLabelColor
+        speedUnit.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(speedUnit)
         
-        let chipsStack = NSStackView(views: [durationChip, tokensChip, modelChip])
-        chipsStack.orientation = .horizontal
-        chipsStack.spacing = 5
-        chipsStack.distribution = .fill
-        chipsStack.translatesAutoresizingMaskIntoConstraints = false
-        heroCard.addSubview(chipsStack)
+        // --- 3. Three-Column Metric Grid ---
+        durTitle.font = .systemFont(ofSize: 10, weight: .regular)
+        durTitle.textColor = .tertiaryLabelColor
+        durTitle.translatesAutoresizingMaskIntoConstraints = false
         
-        // 2. History Section Header
+        durValue.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        durValue.textColor = .labelColor
+        durValue.translatesAutoresizingMaskIntoConstraints = false
+        
+        tokTitle.font = .systemFont(ofSize: 10, weight: .regular)
+        tokTitle.textColor = .tertiaryLabelColor
+        tokTitle.translatesAutoresizingMaskIntoConstraints = false
+        
+        tokValue.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        tokValue.textColor = .labelColor
+        tokValue.translatesAutoresizingMaskIntoConstraints = false
+        
+        modelTitle.font = .systemFont(ofSize: 10, weight: .regular)
+        modelTitle.textColor = .tertiaryLabelColor
+        modelTitle.translatesAutoresizingMaskIntoConstraints = false
+        
+        modelValue.font = .systemFont(ofSize: 12, weight: .medium)
+        modelValue.textColor = .labelColor
+        modelValue.lineBreakMode = .byTruncatingTail
+        modelValue.translatesAutoresizingMaskIntoConstraints = false
+        
+        let col1 = NSStackView(views: [durTitle, durValue])
+        col1.orientation = .vertical
+        col1.alignment = .leading
+        col1.spacing = 2
+        col1.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(col1)
+        
+        let col2 = NSStackView(views: [tokTitle, tokValue])
+        col2.orientation = .vertical
+        col2.alignment = .leading
+        col2.spacing = 2
+        col2.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(col2)
+        
+        let col3 = NSStackView(views: [modelTitle, modelValue])
+        col3.orientation = .vertical
+        col3.alignment = .leading
+        col3.spacing = 2
+        col3.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(col3)
+        
+        // --- 4. Hairline Divider ---
+        divider.boxType = .separator
+        divider.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(divider)
+        
+        // --- 5. History Section ---
+        historyTitle.font = .systemFont(ofSize: 11, weight: .semibold)
+        historyTitle.textColor = .secondaryLabelColor
         historyTitle.translatesAutoresizingMaskIntoConstraints = false
-        historyTitle.font = .systemFont(ofSize: 11, weight: .bold)
-        historyTitle.textColor = NSColor.secondaryLabelColor
         addSubview(historyTitle)
         
-        historySub.translatesAutoresizingMaskIntoConstraints = false
-        historySub.font = .systemFont(ofSize: 10, weight: .regular)
-        historySub.textColor = NSColor.tertiaryLabelColor
-        addSubview(historySub)
-        
-        // 3. History Card
-        historyCard.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(historyCard)
-        
-        tableStack.orientation = .vertical
-        tableStack.spacing = 2
-        tableStack.distribution = .fillEqually
-        tableStack.translatesAutoresizingMaskIntoConstraints = false
-        historyCard.addSubview(tableStack)
+        historyTableStack.orientation = .vertical
+        historyTableStack.spacing = 1
+        historyTableStack.distribution = .fillEqually
+        historyTableStack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(historyTableStack)
         
         emptyLabel.font = .systemFont(ofSize: 11, weight: .regular)
-        emptyLabel.textColor = NSColor.tertiaryLabelColor
+        emptyLabel.textColor = .tertiaryLabelColor
         emptyLabel.alignment = .center
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
-        historyCard.addSubview(emptyLabel)
+        addSubview(emptyLabel)
         
         NSLayoutConstraint.activate([
-            // Hero Card Layout
-            heroCard.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            heroCard.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            heroCard.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            heroCard.heightAnchor.constraint(equalToConstant: 116),
+            // Header Row
+            instanceLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            instanceLabel.topAnchor.constraint(equalTo: topAnchor, constant: 12),
             
-            instanceBadge.leadingAnchor.constraint(equalTo: heroCard.leadingAnchor, constant: 12),
-            instanceBadge.topAnchor.constraint(equalTo: heroCard.topAnchor, constant: 10),
-            instanceBadge.heightAnchor.constraint(equalToConstant: 20),
+            statusText.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            statusText.centerYAnchor.constraint(equalTo: instanceLabel.centerYAnchor),
             
-            statusBadge.trailingAnchor.constraint(equalTo: heroCard.trailingAnchor, constant: -12),
-            statusBadge.centerYAnchor.constraint(equalTo: instanceBadge.centerYAnchor),
-            statusBadge.heightAnchor.constraint(equalToConstant: 20),
+            statusDot.trailingAnchor.constraint(equalTo: statusText.leadingAnchor, constant: -4),
+            statusDot.centerYAnchor.constraint(equalTo: statusText.centerYAnchor, constant: -0.5),
             
-            speedLabel.leadingAnchor.constraint(equalTo: heroCard.leadingAnchor, constant: 12),
-            speedLabel.topAnchor.constraint(equalTo: instanceBadge.bottomAnchor, constant: 4),
+            // Speed Hero
+            speedNumber.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            speedNumber.topAnchor.constraint(equalTo: instanceLabel.bottomAnchor, constant: 4),
             
-            unitLabel.leadingAnchor.constraint(equalTo: speedLabel.trailingAnchor, constant: 6),
-            unitLabel.firstBaselineAnchor.constraint(equalTo: speedLabel.firstBaselineAnchor),
+            speedUnit.leadingAnchor.constraint(equalTo: speedNumber.trailingAnchor, constant: 6),
+            speedUnit.firstBaselineAnchor.constraint(equalTo: speedNumber.firstBaselineAnchor),
             
-            chipsStack.leadingAnchor.constraint(equalTo: heroCard.leadingAnchor, constant: 12),
-            chipsStack.trailingAnchor.constraint(lessThanOrEqualTo: heroCard.trailingAnchor, constant: -12),
-            chipsStack.topAnchor.constraint(equalTo: speedLabel.bottomAnchor, constant: 5),
-            chipsStack.heightAnchor.constraint(equalToConstant: 20),
+            // 3-Column Metric Grid
+            col1.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            col1.topAnchor.constraint(equalTo: speedNumber.bottomAnchor, constant: 8),
+            col1.widthAnchor.constraint(equalToConstant: 65),
             
-            durationChip.heightAnchor.constraint(equalToConstant: 20),
-            tokensChip.heightAnchor.constraint(equalToConstant: 20),
-            modelChip.heightAnchor.constraint(equalToConstant: 20),
+            col2.leadingAnchor.constraint(equalTo: col1.trailingAnchor, constant: 10),
+            col2.topAnchor.constraint(equalTo: col1.topAnchor),
+            col2.widthAnchor.constraint(equalToConstant: 70),
             
-            // History Section Header Layout
-            historyTitle.topAnchor.constraint(equalTo: heroCard.bottomAnchor, constant: 11),
+            col3.leadingAnchor.constraint(equalTo: col2.trailingAnchor, constant: 10),
+            col3.topAnchor.constraint(equalTo: col1.topAnchor),
+            col3.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            
+            // Divider
+            divider.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            divider.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            divider.topAnchor.constraint(equalTo: col1.bottomAnchor, constant: 12),
+            
+            // History Section
             historyTitle.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            historyTitle.topAnchor.constraint(equalTo: divider.bottomAnchor, constant: 10),
             
-            historySub.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-            historySub.centerYAnchor.constraint(equalTo: historyTitle.centerYAnchor),
+            historyTableStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            historyTableStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            historyTableStack.topAnchor.constraint(equalTo: historyTitle.bottomAnchor, constant: 6),
+            historyTableStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
             
-            // History Card Layout
-            historyCard.topAnchor.constraint(equalTo: historyTitle.bottomAnchor, constant: 6),
-            historyCard.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            historyCard.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            historyCard.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6),
-            
-            tableStack.topAnchor.constraint(equalTo: historyCard.topAnchor, constant: 6),
-            tableStack.leadingAnchor.constraint(equalTo: historyCard.leadingAnchor, constant: 10),
-            tableStack.trailingAnchor.constraint(equalTo: historyCard.trailingAnchor, constant: -10),
-            tableStack.bottomAnchor.constraint(equalTo: historyCard.bottomAnchor, constant: -6),
-            
-            emptyLabel.centerXAnchor.constraint(equalTo: historyCard.centerXAnchor),
-            emptyLabel.centerYAnchor.constraint(equalTo: historyCard.centerYAnchor)
+            emptyLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            emptyLabel.centerYAnchor.constraint(equalTo: historyTableStack.centerYAnchor)
         ])
     }
     
     func update(instance: MonitoredInstance) {
         let last = instance.records.last
         
-        // 1. Instance Source Badge
-        instanceBadge.update(text: "⚡ \(instance.name)")
+        // 1. Instance Title
+        instanceLabel.stringValue = instance.name
         
-        // 2. Status Badge
+        // 2. Status Dot & Text
         if instance.isGenerating {
-            statusBadge.update(
-                text: "⚡ 生成中",
-                textColor: NSColor.systemOrange,
-                bgColor: NSColor.systemOrange.withAlphaComponent(0.16)
-            )
+            statusDot.textColor = .systemOrange
+            statusText.stringValue = "生成中..."
+            statusText.textColor = .systemOrange
         } else if last != nil {
-            statusBadge.update(
-                text: "● 活跃",
-                textColor: NSColor(red: 0.22, green: 0.85, blue: 0.52, alpha: 1.0),
-                bgColor: NSColor(red: 0.22, green: 0.85, blue: 0.52, alpha: 0.15)
-            )
+            statusDot.textColor = .systemGreen
+            statusText.stringValue = "活跃"
+            statusText.textColor = .secondaryLabelColor
         } else {
-            statusBadge.update(
-                text: "● 待命",
-                textColor: NSColor.secondaryLabelColor,
-                bgColor: NSColor(white: 1.0, alpha: 0.08)
-            )
+            statusDot.textColor = .tertiaryLabelColor
+            statusText.stringValue = "待命"
+            statusText.textColor = .tertiaryLabelColor
         }
         
         // 3. Hero Speed Display
         if let spd = last?.tps, spd > 0 {
-            speedLabel.stringValue = String(format: "%.1f", spd)
-            if instance.isGenerating || spd >= 40.0 {
-                speedLabel.textColor = NSColor(red: 0.22, green: 0.85, blue: 0.52, alpha: 1.0)
-            } else if spd >= 20.0 {
-                speedLabel.textColor = NSColor(red: 0.35, green: 0.65, blue: 1.0, alpha: 1.0)
+            speedNumber.stringValue = String(format: "%.1f", spd)
+            if instance.isGenerating {
+                speedNumber.textColor = .systemOrange
+            } else if spd >= 40.0 {
+                speedNumber.textColor = NSColor(red: 0.22, green: 0.82, blue: 0.48, alpha: 1.0)
             } else {
-                speedLabel.textColor = NSColor.labelColor
+                speedNumber.textColor = .labelColor
             }
         } else {
-            speedLabel.stringValue = "--"
-            speedLabel.textColor = NSColor.secondaryLabelColor
+            speedNumber.stringValue = "--"
+            speedNumber.textColor = .secondaryLabelColor
         }
         
-        // 4. Sub-Metric Chips
+        // 4. Metric Columns
         if let r = last {
-            durationChip.update(text: String(format: "⏱ %.1fs", r.duration))
-            tokensChip.update(text: "📊 \(r.tokens) tok")
+            durValue.stringValue = String(format: "%.1fs", r.duration)
+            tokValue.stringValue = "\(r.tokens) tok"
         } else {
-            durationChip.update(text: "⏱ --s")
-            tokensChip.update(text: "📊 -- tok")
+            durValue.stringValue = "--"
+            tokValue.stringValue = "--"
         }
         
-        // Clean Model Name display (e.g. "Gemini 3.8 Flash (Medium)" -> shortened if needed)
-        var shortModel = instance.modelName
-        if shortModel.count > 19 {
-            shortModel = shortModel.replacingOccurrences(of: " (High)", with: " (H)")
-                                   .replacingOccurrences(of: " (Medium)", with: " (M)")
-                                   .replacingOccurrences(of: " (Low)", with: " (L)")
-        }
-        modelChip.update(text: "🧠 \(shortModel)")
-        modelChip.toolTip = "活动模型: \(instance.modelName)"
+        modelValue.stringValue = instance.modelName
+        modelValue.toolTip = instance.modelName
         
-        // 5. Recent History Table
-        for v in tableStack.arrangedSubviews {
-            tableStack.removeArrangedSubview(v)
+        // 5. History Table
+        for v in historyTableStack.arrangedSubviews {
+            historyTableStack.removeArrangedSubview(v)
             v.removeFromSuperview()
         }
         
         let recent = Array(instance.records.suffix(5).reversed())
         if recent.isEmpty {
             emptyLabel.isHidden = false
-            tableStack.isHidden = true
+            historyTableStack.isHidden = true
         } else {
             emptyLabel.isHidden = true
-            tableStack.isHidden = false
+            historyTableStack.isHidden = false
             
             // Header Row
-            let header = createTableRow(index: "轮次", tokens: "分词", duration: "耗时", speed: "速率", isHeader: true)
-            tableStack.addArrangedSubview(header)
+            let header = createTableRow(index: "#", tokens: "词数", duration: "耗时", speed: "速率", isHeader: true)
+            historyTableStack.addArrangedSubview(header)
             
             // Data Rows
             for (idx, r) in recent.enumerated() {
                 let row = createTableRow(
-                    index: "#\(idx + 1)",
-                    tokens: "\(r.tokens) tok",
+                    index: "\(idx + 1)",
+                    tokens: "\(r.tokens)",
                     duration: String(format: "%.1fs", r.duration),
                     speed: String(format: "%.1f tok/s", r.tps),
-                    isHeader: false,
-                    tps: r.tps
+                    isHeader: false
                 )
-                tableStack.addArrangedSubview(row)
+                historyTableStack.addArrangedSubview(row)
             }
         }
         
         needsDisplay = true
     }
     
-    private func createTableRow(index: String, tokens: String, duration: String, speed: String, isHeader: Bool, tps: Double = 0) -> NSView {
+    private func createTableRow(index: String, tokens: String, duration: String, speed: String, isHeader: Bool) -> NSView {
         let rowView = NSView()
         rowView.translatesAutoresizingMaskIntoConstraints = false
-        rowView.heightAnchor.constraint(equalToConstant: isHeader ? 16 : 19).isActive = true
+        rowView.heightAnchor.constraint(equalToConstant: isHeader ? 16 : 18).isActive = true
         
-        let c1: NSView
+        let c1 = NSTextField(labelWithString: index)
         let c2 = NSTextField(labelWithString: tokens)
         let c3 = NSTextField(labelWithString: duration)
         let c4 = NSTextField(labelWithString: speed)
@@ -388,31 +307,10 @@ class MomiDashboardView: NSView {
         let font = isHeader ? NSFont.systemFont(ofSize: 10, weight: .medium) : NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
         let textColor = isHeader ? NSColor.tertiaryLabelColor : NSColor.labelColor
         
-        if isHeader {
-            let label = NSTextField(labelWithString: index)
-            label.font = font
-            label.textColor = textColor
-            label.translatesAutoresizingMaskIntoConstraints = false
-            rowView.addSubview(label)
-            label.leadingAnchor.constraint(equalTo: rowView.leadingAnchor).isActive = true
-            label.centerYAnchor.constraint(equalTo: rowView.centerYAnchor).isActive = true
-            c1 = label
-        } else {
-            let badge = PillBadgeView(
-                text: index,
-                font: .monospacedDigitSystemFont(ofSize: 9.5, weight: .bold),
-                textColor: NSColor.secondaryLabelColor,
-                bgColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.08) : NSColor(white: 0.0, alpha: 0.06) },
-                cornerRadius: 3.5
-            )
-            badge.translatesAutoresizingMaskIntoConstraints = false
-            rowView.addSubview(badge)
-            badge.leadingAnchor.constraint(equalTo: rowView.leadingAnchor).isActive = true
-            badge.centerYAnchor.constraint(equalTo: rowView.centerYAnchor).isActive = true
-            badge.heightAnchor.constraint(equalToConstant: 15).isActive = true
-            c1 = badge
-        }
-        _ = c1
+        c1.font = font
+        c1.textColor = isHeader ? textColor : NSColor.tertiaryLabelColor
+        c1.translatesAutoresizingMaskIntoConstraints = false
+        rowView.addSubview(c1)
         
         c2.font = font
         c2.textColor = textColor
@@ -426,27 +324,20 @@ class MomiDashboardView: NSView {
         c3.translatesAutoresizingMaskIntoConstraints = false
         rowView.addSubview(c3)
         
-        c4.font = isHeader ? font : NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
-        if !isHeader {
-            if tps >= 40.0 {
-                c4.textColor = NSColor(red: 0.22, green: 0.85, blue: 0.52, alpha: 1.0)
-            } else if tps >= 20.0 {
-                c4.textColor = NSColor(red: 0.35, green: 0.65, blue: 1.0, alpha: 1.0)
-            } else {
-                c4.textColor = NSColor.labelColor
-            }
-        } else {
-            c4.textColor = textColor
-        }
+        c4.font = font
+        c4.textColor = textColor
         c4.alignment = .right
         c4.translatesAutoresizingMaskIntoConstraints = false
         rowView.addSubview(c4)
         
         NSLayoutConstraint.activate([
-            c2.trailingAnchor.constraint(equalTo: rowView.leadingAnchor, constant: 110),
+            c1.leadingAnchor.constraint(equalTo: rowView.leadingAnchor),
+            c1.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
+            
+            c2.trailingAnchor.constraint(equalTo: rowView.leadingAnchor, constant: 95),
             c2.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
             
-            c3.trailingAnchor.constraint(equalTo: rowView.leadingAnchor, constant: 175),
+            c3.trailingAnchor.constraint(equalTo: rowView.leadingAnchor, constant: 165),
             c3.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
             
             c4.trailingAnchor.constraint(equalTo: rowView.trailingAnchor),
@@ -505,7 +396,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         mainMenu.autoenablesItems = false
         mainMenu.delegate = self
         
-        // 1. Dashboard View (Hero Card + History Table)
+        // 1. Dashboard View (Header, Speed Hero, Metrics, History Table)
         dashboardMenuItem.view = dashboardView
         mainMenu.addItem(dashboardMenuItem)
         
@@ -757,8 +648,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
             
-            // Priority A: generating instance
-            // Priority B: most recently modified instance
             var bestIndex = self.activeInstanceIndex
             var bestDate: Date = .distantPast
             var anyGenerating = false
