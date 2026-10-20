@@ -23,6 +23,18 @@ struct MonitoredInstance {
     var modelName: String = "Gemini 3.8 Flash (High)"
 }
 
+func roundedImage(image: NSImage, cornerRadius: CGFloat) -> NSImage {
+    let imageSize = image.size
+    let newImage = NSImage(size: imageSize)
+    newImage.lockFocus()
+    let rect = NSRect(origin: .zero, size: imageSize)
+    let path = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
+    path.addClip()
+    image.draw(in: rect)
+    newImage.unlockFocus()
+    return newImage
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var updateTimer: Timer?
@@ -35,12 +47,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
-        // Official Antigravity icon for menu bar
+        // Custom avatar icon with soft rounded corners
         if let iconPath = Bundle.main.path(forResource: "menubar_icon", ofType: "png"),
            let img = NSImage(contentsOfFile: iconPath) {
             img.size = NSSize(width: 16, height: 16)
-            menubarIcon = img
-            statusItem.button?.image = img
+            let rounded = roundedImage(image: img, cornerRadius: 3.5)
+            menubarIcon = rounded
+            statusItem.button?.image = rounded
             statusItem.button?.imagePosition = .imageLeft
         }
         
