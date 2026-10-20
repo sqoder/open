@@ -11,18 +11,25 @@ struct TokenRecord {
     let date: Date
 }
 
+struct MonitoredInstance {
+    let name: String
+    let shortTag: String
+    let brainDir: URL
+    var latestURL: URL?
+    var latestModDate: Date = .distantPast
+    var lastParsedModDate: Date = .distantPast
+    var isGenerating: Bool = false
+    var records: [TokenRecord] = []
+    var modelName: String = "Gemini 3.8 Flash (High)"
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var updateTimer: Timer?
-    var lastTranscriptURL: URL?
-    var lastRecords: [TokenRecord] = []
-    var currentModelName: String = "Gemini 3.8 Flash (High)"
     var avatarImage: NSImage?
     
-    // Cache guards to prevent wasted CPU & memory
-    var lastParsedModDate: Date = .distantPast
-    var lastParsedURL: URL? = nil
-    var lastIsGenerating: Bool = false
+    var instances: [MonitoredInstance] = []
+    var activeInstanceIndex: Int = 0
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -35,6 +42,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             avatarImage = img
         }
         
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        instances = [
+            MonitoredInstance(
+                name: "Antigravity Desktop",
+                shortTag: "Desktop",
+                brainDir: home.appendingPathComponent(".gemini/antigravity/brain")
+            ),
+            MonitoredInstance(
+                name: "Antigravity CLI",
+                shortTag: "CLI",
+                brainDir: home.appendingPathComponent(".gemini/antigravity-cli/brain")
+            ),
+            MonitoredInstance(
+                name: "Antigravity IDE",
+                shortTag: "IDE",
+                brainDir: home.appendingPathComponent(".gemini/antigravity-ide/brain")
+            )
+        ]
+        
         updateMetrics()
         
         // 1.5s refresh timer
@@ -43,11 +69,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
-    func getLatestTranscriptFile() -> (url: URL, modDate: Date)? {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let brainDir = home.appendingPathComponent(".gemini/antigravity/brain")
+    func findLatestTranscript(in dir: URL) -> (url: URL, modDate: Date)? {
         guard let enumerator = FileManager.default.enumerator(
-            at: brainDir,
+            at: dir,
             includingPropertiesForKeys: [.contentModificationDateKey],
             options: []
         ) else { return nil }
@@ -73,7 +97,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return nil
     }
     
-    /// Reads only the tail of the file (max 64KB) to avoid loading massive files into RAM
+    /// Reads only the tail (64KB) to avoid loading giant files into RAM
     func readTail(url: URL, maxBytes: UInt64 = 65536) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
@@ -88,7 +112,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let content = readTail(url: url) else { return ([], nil) }
         let rawLines = content.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         
-        // If we read from the middle of a file, drop the very first line if it's incomplete JSON
         let lines: [String]
         if rawLines.count > 1 && !rawLines[0].hasPrefix("{") {
             lines = Array(rawLines.dropFirst())
@@ -153,36 +176,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc func updateMetrics() {
-        guard let latest = getLatestTranscriptFile() else {
-            statusItem.button?.title = "⚡ -- tok/s"
-            return
+        let now = Date()
+        
+        // 1. Scan and update all instances
+        for i in 0..<instances.count {
+            if let latest = findLatestTranscript(in: instances[i].brainDir) {
+                instances[i].latestURL = latest.url
+                instances[i].latestModDate = latest.modDate
+                let generating = now.timeIntervalSince(latest.modDate) < 2.5
+                instances[i].isGenerating = generating
+                
+                // Only re-parse if modified
+                if latest.modDate != instances[i].lastParsedModDate {
+                    instances[i].lastParsedModDate = latest.modDate
+                    let (recs, model) = parseTranscript(url: latest.url, fileModDate: latest.modDate)
+                    if let model = model {
+                        instances[i].modelName = model
+                    }
+                    if !recs.isEmpty {
+                        instances[i].records = recs
+                    }
+                }
+            }
         }
         
-        let isGenerating = Date().timeIntervalSince(latest.modDate) < 2.0
+        // 2. Determine active instance:
+        // Priority A: generating instance
+        // Priority B: most recently modified instance
+        var bestIndex = 0
+        var bestDate: Date = .distantPast
+        var anyGenerating = false
         
-        // Zero-waste guard: if the file hasn't changed and generation state hasn't changed, skip parsing!
-        if latest.url == lastParsedURL &&
-           latest.modDate == lastParsedModDate &&
-           isGenerating == lastIsGenerating {
-            return
+        for (idx, inst) in instances.enumerated() {
+            if inst.isGenerating {
+                bestIndex = idx
+                anyGenerating = true
+                break
+            }
+            if inst.latestModDate > bestDate {
+                bestDate = inst.latestModDate
+                bestIndex = idx
+            }
         }
+        activeInstanceIndex = bestIndex
+        let active = instances[activeInstanceIndex]
         
-        lastParsedURL = latest.url
-        lastParsedModDate = latest.modDate
-        lastIsGenerating = isGenerating
-        lastTranscriptURL = latest.url
-        
-        let (records, model) = parseTranscript(url: latest.url, fileModDate: latest.modDate)
-        if let model = model {
-            currentModelName = model
-        }
-        if !records.isEmpty {
-            lastRecords = records
-        }
-        
-        if let last = lastRecords.last {
-            if isGenerating {
-                statusItem.button?.title = String(format: "⚡ %.1f t/s (生成中)", last.tps)
+        // 3. Update status bar button
+        if let last = active.records.last {
+            if anyGenerating {
+                statusItem.button?.title = String(format: "⚡ %.1f t/s [生成中·%@]", last.tps, active.shortTag)
             } else {
                 statusItem.button?.title = String(format: "⚡ %.1f tok/s", last.tps)
             }
@@ -195,19 +237,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func rebuildMenu() {
         let menu = NSMenu()
+        let active = instances[activeInstanceIndex]
         
         // Header
-        let headerItem = NSMenuItem(title: "  momi · AI 测速仪", action: nil, keyEquivalent: "")
-        headerItem.attributedTitle = NSAttributedString(string: "  momi · AI 实时测速仪", attributes: [
-            .font: NSFont.boldSystemFont(ofSize: 14)
+        let headerItem = NSMenuItem(title: "  momi · AI 实时测速仪", action: nil, keyEquivalent: "")
+        headerItem.attributedTitle = NSAttributedString(string: "  momi · AI 实时测速仪  v1.1.0", attributes: [
+            .font: NSFont.boldSystemFont(ofSize: 13)
         ])
         if let img = avatarImage {
             headerItem.image = img
         }
         menu.addItem(headerItem)
         
-        let sourceItem = NSMenuItem(title: "🟢 正在监听: Antigravity", action: nil, keyEquivalent: "")
-        sourceItem.attributedTitle = NSAttributedString(string: "🟢 正在监听: Antigravity", attributes: [
+        let sourceStatus = active.isGenerating ? "🟢 正在生成 (实时监听)" : "🟢 活跃监听中"
+        let sourceItem = NSMenuItem(title: "\(sourceStatus): \(active.name)", action: nil, keyEquivalent: "")
+        sourceItem.attributedTitle = NSAttributedString(string: "\(sourceStatus): \(active.name)", attributes: [
             .font: NSFont.systemFont(ofSize: 12),
             .foregroundColor: NSColor.secondaryLabelColor
         ])
@@ -215,9 +259,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        if let last = lastRecords.last {
-            let speedItem = NSMenuItem(title: String(format: "当前速度:  %.1f tokens/s", last.tps), action: nil, keyEquivalent: "")
-            speedItem.attributedTitle = NSAttributedString(string: String(format: "当前速度:  %.1f tokens/s", last.tps), attributes: [
+        // Current active instance metrics
+        if let last = active.records.last {
+            let speedText = String(format: "当前速度:  %.1f tokens/s", last.tps)
+            let speedItem = NSMenuItem(title: speedText, action: nil, keyEquivalent: "")
+            speedItem.attributedTitle = NSAttributedString(string: speedText, attributes: [
                 .font: NSFont.boldSystemFont(ofSize: 13),
                 .foregroundColor: NSColor.systemGreen
             ])
@@ -227,9 +273,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(detailItem)
         }
         
-        menu.addItem(NSMenuItem(title: "当前模型:  \(currentModelName)", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "当前模型:  \(active.modelName)", action: nil, keyEquivalent: ""))
         
-        if let url = lastTranscriptURL {
+        if let url = active.latestURL {
             let sessionID = url.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().lastPathComponent
             let shortID = sessionID.count > 12 ? String(sessionID.prefix(12)) + "..." : sessionID
             menu.addItem(NSMenuItem(title: "会话 ID:  \(shortID)", action: nil, keyEquivalent: ""))
@@ -237,14 +283,72 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        // History section
-        let historyHeader = NSMenuItem(title: "📊 最近生成记录:", action: nil, keyEquivalent: "")
-        historyHeader.attributedTitle = NSAttributedString(string: "📊 最近生成记录:", attributes: [
+        // Multi-instance status overview
+        let instHeader = NSMenuItem(title: "📱 监听中的实例:", action: nil, keyEquivalent: "")
+        instHeader.attributedTitle = NSAttributedString(string: "📱 监听中的实例:", attributes: [
+            .font: NSFont.boldSystemFont(ofSize: 12)
+        ])
+        menu.addItem(instHeader)
+        
+        let now = Date()
+        for (idx, inst) in instances.enumerated() {
+            let isActive = (idx == activeInstanceIndex)
+            let icon: String
+            let desc: String
+            
+            if inst.isGenerating {
+                icon = "🔥"
+                desc = "生成中..."
+            } else if isActive {
+                icon = "🟢"
+                if let r = inst.records.last {
+                    desc = String(format: "活跃 · %.1f t/s", r.tps)
+                } else {
+                    desc = "活跃"
+                }
+            } else if inst.latestModDate != .distantPast {
+                let diffMins = Int(now.timeIntervalSince(inst.latestModDate) / 60)
+                icon = "⚪"
+                if diffMins < 60 {
+                    desc = "\(diffMins) 分钟前"
+                } else {
+                    let diffHours = diffMins / 60
+                    desc = "\(diffHours) 小时前"
+                }
+            } else {
+                icon = "⚪"
+                desc = "无记录 / 离线"
+            }
+            
+            let title = String(format: "  %@ %@: %@", icon, inst.name, desc)
+            let item = NSMenuItem(title: title, action: #selector(switchInstanceAction(_:)), keyEquivalent: "")
+            item.tag = idx
+            item.target = self
+            if isActive {
+                item.attributedTitle = NSAttributedString(string: title, attributes: [
+                    .font: NSFont.boldSystemFont(ofSize: 11),
+                    .foregroundColor: NSColor.labelColor
+                ])
+            } else {
+                item.attributedTitle = NSAttributedString(string: title, attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: NSColor.secondaryLabelColor
+                ])
+            }
+            menu.addItem(item)
+        }
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // History section of active instance
+        let historyTitle = "📊 最近生成记录 (\(active.shortTag)):"
+        let historyHeader = NSMenuItem(title: historyTitle, action: nil, keyEquivalent: "")
+        historyHeader.attributedTitle = NSAttributedString(string: historyTitle, attributes: [
             .font: NSFont.boldSystemFont(ofSize: 12)
         ])
         menu.addItem(historyHeader)
         
-        let recent = lastRecords.suffix(5).reversed()
+        let recent = active.records.suffix(5).reversed()
         if recent.isEmpty {
             let emptyItem = NSMenuItem(title: "  暂无记录", action: nil, keyEquivalent: "")
             emptyItem.isEnabled = false
@@ -267,7 +371,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         refreshItem.target = self
         menu.addItem(refreshItem)
         
-        let openDirItem = NSMenuItem(title: "📂 打开会话日志目录", action: #selector(openLogDirAction), keyEquivalent: "o")
+        let openDirItem = NSMenuItem(title: "📂 打开当前会话目录", action: #selector(openLogDirAction), keyEquivalent: "o")
         openDirItem.target = self
         menu.addItem(openDirItem)
         
@@ -280,13 +384,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
     }
     
+    @objc func switchInstanceAction(_ sender: NSMenuItem) {
+        if sender.tag >= 0 && sender.tag < instances.count {
+            activeInstanceIndex = sender.tag
+            rebuildMenu()
+        }
+    }
+    
     @objc func refreshAction() {
-        lastParsedModDate = .distantPast
+        for i in 0..<instances.count {
+            instances[i].lastParsedModDate = .distantPast
+        }
         updateMetrics()
     }
     
     @objc func openLogDirAction() {
-        if let dir = lastTranscriptURL?.deletingLastPathComponent() {
+        let active = instances[activeInstanceIndex]
+        if let dir = active.latestURL?.deletingLastPathComponent() {
             NSWorkspace.shared.open(dir)
         }
     }
