@@ -10,6 +10,8 @@ mkdir -p "$APP_DIR/Contents/Resources"
 
 cp "$DIR/src/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$DIR/resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
+cp "$DIR/resources/menubar_icon.png" "$APP_DIR/Contents/Resources/menubar_icon.png"
+cp "$DIR/resources/menu_logo.png" "$APP_DIR/Contents/Resources/menu_logo.png"
 
 swiftc -O "$DIR/src/main.swift" -o "$APP_DIR/Contents/MacOS/momi"
 
