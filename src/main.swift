@@ -27,27 +27,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var updateTimer: Timer?
     var menubarIcon: NSImage?
-    var menuLogo: NSImage?
     
     var instances: [MonitoredInstance] = []
     var activeInstanceIndex: Int = 0
+    var isChecking: Bool = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
-        // Load official Antigravity icons
+        // Official Antigravity icon for menu bar
         if let iconPath = Bundle.main.path(forResource: "menubar_icon", ofType: "png"),
            let img = NSImage(contentsOfFile: iconPath) {
             img.size = NSSize(width: 16, height: 16)
             menubarIcon = img
             statusItem.button?.image = img
             statusItem.button?.imagePosition = .imageLeft
-        }
-        
-        if let logoPath = Bundle.main.path(forResource: "menu_logo", ofType: "png"),
-           let img = NSImage(contentsOfFile: logoPath) {
-            img.size = NSSize(width: 20, height: 20)
-            menuLogo = img
         }
         
         statusItem.button?.title = " momi"
@@ -63,45 +57,51 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 name: "Antigravity CLI",
                 shortTag: "CLI",
                 brainDir: home.appendingPathComponent(".gemini/antigravity-cli/brain")
-            ),
-            MonitoredInstance(
-                name: "Antigravity IDE",
-                shortTag: "IDE",
-                brainDir: home.appendingPathComponent(".gemini/antigravity-ide/brain")
             )
         ]
         
-        updateMetrics()
+        // Pre-build menu so clicking is instant from the start
+        rebuildMenu()
+        
+        // Trigger first check immediately in background
+        triggerBackgroundUpdate()
         
         // 1.5s refresh timer
         updateTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
-            self?.updateMetrics()
+            self?.triggerBackgroundUpdate()
         }
     }
     
-    func findLatestTranscript(in dir: URL) -> (url: URL, modDate: Date)? {
-        guard let enumerator = FileManager.default.enumerator(
-            at: dir,
+    /// Ultra-fast 1-level session directory search (only 1-2ms, never enumerates 100k files)
+    func fastFindLatestTranscript(in brainDir: URL) -> (url: URL, modDate: Date)? {
+        guard let sessionDirs = try? FileManager.default.contentsOfDirectory(
+            at: brainDir,
             includingPropertiesForKeys: [.contentModificationDateKey],
-            options: []
+            options: .skipsHiddenFiles
         ) else { return nil }
         
-        var latestURL: URL?
+        let sortedDirs = sessionDirs.compactMap { url -> (URL, Date)? in
+            guard let attrs = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
+                  let date = attrs.contentModificationDate else { return nil }
+            return (url, date)
+        }.sorted { $0.1 > $1.1 }
+        
+        var latestFile: URL?
         var latestDate: Date = .distantPast
         
-        for case let fileURL as URL in enumerator {
-            if fileURL.lastPathComponent == "transcript.jsonl" {
-                if let attrs = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),
-                   let modDate = attrs.contentModificationDate {
-                    if modDate > latestDate {
-                        latestDate = modDate
-                        latestURL = fileURL
-                    }
+        // Check only top 5 most recently modified session folders
+        for (dir, _) in sortedDirs.prefix(5) {
+            let transcript = dir.appendingPathComponent(".system_generated/logs/transcript.jsonl")
+            if let attrs = try? transcript.resourceValues(forKeys: [.contentModificationDateKey]),
+               let date = attrs.contentModificationDate {
+                if date > latestDate {
+                    latestDate = date
+                    latestFile = transcript
                 }
             }
         }
         
-        if let url = latestURL {
+        if let url = latestFile {
             return (url, latestDate)
         }
         return nil
@@ -185,90 +185,97 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return (records, detectedModel)
     }
     
-    @objc func updateMetrics() {
-        let now = Date()
+    /// Background asynchronous update: NEVER blocks the main thread
+    func triggerBackgroundUpdate() {
+        if isChecking { return }
+        isChecking = true
         
-        // 1. Scan and update all instances
-        for i in 0..<instances.count {
-            if let latest = findLatestTranscript(in: instances[i].brainDir) {
-                instances[i].latestURL = latest.url
-                instances[i].latestModDate = latest.modDate
-                let generating = now.timeIntervalSince(latest.modDate) < 2.5
-                instances[i].isGenerating = generating
-                
-                // Only re-parse if modified
-                if latest.modDate != instances[i].lastParsedModDate {
-                    instances[i].lastParsedModDate = latest.modDate
-                    let (recs, model) = parseTranscript(url: latest.url, fileModDate: latest.modDate)
-                    if let model = model {
-                        instances[i].modelName = model
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+            let now = Date()
+            var updatedInstances = self.instances
+            var hasChanges = false
+            
+            for i in 0..<updatedInstances.count {
+                if let latest = self.fastFindLatestTranscript(in: updatedInstances[i].brainDir) {
+                    updatedInstances[i].latestURL = latest.url
+                    updatedInstances[i].latestModDate = latest.modDate
+                    
+                    let generating = now.timeIntervalSince(latest.modDate) < 2.5
+                    if generating != updatedInstances[i].isGenerating {
+                        updatedInstances[i].isGenerating = generating
+                        hasChanges = true
                     }
-                    if !recs.isEmpty {
-                        instances[i].records = recs
+                    
+                    if latest.modDate != updatedInstances[i].lastParsedModDate {
+                        updatedInstances[i].lastParsedModDate = latest.modDate
+                        let (recs, model) = self.parseTranscript(url: latest.url, fileModDate: latest.modDate)
+                        if let model = model {
+                            updatedInstances[i].modelName = model
+                        }
+                        if !recs.isEmpty {
+                            updatedInstances[i].records = recs
+                        }
+                        hasChanges = true
                     }
                 }
             }
-        }
-        
-        // 2. Determine active instance:
-        var bestIndex = 0
-        var bestDate: Date = .distantPast
-        var anyGenerating = false
-        
-        for (idx, inst) in instances.enumerated() {
-            if inst.isGenerating {
-                bestIndex = idx
-                anyGenerating = true
-                break
+            
+            // Priority A: generating instance
+            // Priority B: most recently modified instance
+            var bestIndex = self.activeInstanceIndex
+            var bestDate: Date = .distantPast
+            var anyGenerating = false
+            
+            for (idx, inst) in updatedInstances.enumerated() {
+                if inst.isGenerating {
+                    bestIndex = idx
+                    anyGenerating = true
+                    break
+                }
+                if inst.latestModDate > bestDate {
+                    bestDate = inst.latestModDate
+                    bestIndex = idx
+                }
             }
-            if inst.latestModDate > bestDate {
-                bestDate = inst.latestModDate
-                bestIndex = idx
+            
+            DispatchQueue.main.async {
+                self.isChecking = false
+                self.instances = updatedInstances
+                if self.activeInstanceIndex != bestIndex {
+                    self.activeInstanceIndex = bestIndex
+                    hasChanges = true
+                }
+                
+                let active = self.instances[self.activeInstanceIndex]
+                
+                // Update status bar button
+                if let last = active.records.last {
+                    if anyGenerating {
+                        self.statusItem.button?.title = String(format: " %.1f t/s · 生成中", last.tps)
+                    } else {
+                        self.statusItem.button?.title = String(format: " %.1f tok/s", last.tps)
+                    }
+                } else {
+                    self.statusItem.button?.title = " momi"
+                }
+                
+                if hasChanges {
+                    self.rebuildMenu()
+                }
             }
         }
-        activeInstanceIndex = bestIndex
-        let active = instances[activeInstanceIndex]
-        
-        // 3. Update status bar button with Antigravity logo + title
-        if let last = active.records.last {
-            if anyGenerating {
-                statusItem.button?.title = String(format: " %.1f t/s · 生成中", last.tps)
-            } else {
-                statusItem.button?.title = String(format: " %.1f tok/s", last.tps)
-            }
-        } else {
-            statusItem.button?.title = " momi"
-        }
-        
-        rebuildMenu()
     }
     
     func rebuildMenu() {
         let menu = NSMenu()
+        menu.autoenablesItems = false
+        
+        guard activeInstanceIndex >= 0 && activeInstanceIndex < instances.count else { return }
         let active = instances[activeInstanceIndex]
         let last = active.records.last
         
-        // 1. Header with Antigravity official icon
-        let headerItem = NSMenuItem(title: "momi · Antigravity 测速仪", action: nil, keyEquivalent: "")
-        if let logo = menuLogo {
-            headerItem.image = logo
-        }
-        let headerAttr = NSMutableAttributedString()
-        headerAttr.append(NSAttributedString(string: "momi · Antigravity 测速仪", attributes: [
-            .font: NSFont.boldSystemFont(ofSize: 13),
-            .foregroundColor: NSColor.labelColor
-        ]))
-        headerAttr.append(NSAttributedString(string: "  v1.2.1", attributes: [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
-            .foregroundColor: NSColor.tertiaryLabelColor
-        ]))
-        headerItem.attributedTitle = headerAttr
-        headerItem.isEnabled = false
-        menu.addItem(headerItem)
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // 2. Real-time Throughput (Hero Metric)
+        // 1. Real-time Throughput (Hero Metric) - Starts directly, no redundant title row
         let speedItem = NSMenuItem(title: "实时速率", action: nil, keyEquivalent: "")
         let speedAttr = NSMutableAttributedString()
         speedAttr.append(NSAttributedString(string: "实时速率:   ", attributes: [
@@ -293,7 +300,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         speedItem.isEnabled = false
         menu.addItem(speedItem)
         
-        // 3. Last Turn Metrics
+        // 2. Last Turn Duration & Tokens
         let metricItem = NSMenuItem(title: "上次耗时", action: nil, keyEquivalent: "")
         let metricAttr = NSMutableAttributedString()
         metricAttr.append(NSAttributedString(string: "上次耗时:   ", attributes: [
@@ -315,7 +322,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         metricItem.isEnabled = false
         menu.addItem(metricItem)
         
-        // 4. Active Model
+        // 3. Active Model
         let modelItem = NSMenuItem(title: "活动模型", action: nil, keyEquivalent: "")
         let modelAttr = NSMutableAttributedString()
         modelAttr.append(NSAttributedString(string: "活动模型:   ", attributes: [
@@ -332,7 +339,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        // 5. Recent Generations Table Header
+        // 4. Tabular History Section
         let tableHeader = NSMenuItem(title: "最近吞吐记录", action: nil, keyEquivalent: "")
         tableHeader.attributedTitle = NSAttributedString(string: "最近吞吐记录", attributes: [
             .font: NSFont.boldSystemFont(ofSize: 11),
@@ -373,7 +380,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        // 6. Instance Switcher Submenu
+        // 5. Instance Switcher Submenu (Only Desktop and CLI, NO IDE!)
         let now = Date()
         let instanceMenuTitle = "监听实例: \(active.name)"
         let instanceMenuItem = NSMenuItem(title: instanceMenuTitle, action: nil, keyEquivalent: "")
@@ -419,7 +426,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        // 7. Actions (Clean Apple native items)
+        // 6. Actions
         let refreshItem = NSMenuItem(title: "刷新数据", action: #selector(refreshAction), keyEquivalent: "r")
         refreshItem.target = self
         menu.addItem(refreshItem)
@@ -448,10 +455,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for i in 0..<instances.count {
             instances[i].lastParsedModDate = .distantPast
         }
-        updateMetrics()
+        triggerBackgroundUpdate()
     }
     
     @objc func openLogDirAction() {
+        guard activeInstanceIndex >= 0 && activeInstanceIndex < instances.count else { return }
         let active = instances[activeInstanceIndex]
         if let dir = active.latestURL?.deletingLastPathComponent() {
             NSWorkspace.shared.open(dir)
