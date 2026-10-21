@@ -56,7 +56,7 @@ class MomiDashboardView: NSView {
     private let emptyLabel = NSTextField(labelWithString: "暂无已完成的生成记录")
     
     init() {
-        super.init(frame: NSRect(x: 0, y: 0, width: 300, height: 275))
+        super.init(frame: NSRect(x: 0, y: 0, width: 340, height: 275))
         setupUI()
     }
     
@@ -113,7 +113,7 @@ class MomiDashboardView: NSView {
         modelTitle.textColor = .tertiaryLabelColor
         modelTitle.translatesAutoresizingMaskIntoConstraints = false
         
-        modelValue.font = .systemFont(ofSize: 12, weight: .medium)
+        modelValue.font = .systemFont(ofSize: 11.5, weight: .medium)
         modelValue.textColor = .labelColor
         modelValue.lineBreakMode = .byTruncatingTail
         modelValue.translatesAutoresizingMaskIntoConstraints = false
@@ -180,16 +180,16 @@ class MomiDashboardView: NSView {
             speedUnit.leadingAnchor.constraint(equalTo: speedNumber.trailingAnchor, constant: 6),
             speedUnit.firstBaselineAnchor.constraint(equalTo: speedNumber.firstBaselineAnchor),
             
-            // 3-Column Metric Grid
+            // 3-Column Metric Grid (Optimized widths so model names like "Gemini 3.8 Flash (Medium)" never truncate)
             col1.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             col1.topAnchor.constraint(equalTo: speedNumber.bottomAnchor, constant: 8),
-            col1.widthAnchor.constraint(equalToConstant: 65),
+            col1.widthAnchor.constraint(equalToConstant: 54),
             
             col2.leadingAnchor.constraint(equalTo: col1.trailingAnchor, constant: 10),
             col2.topAnchor.constraint(equalTo: col1.topAnchor),
-            col2.widthAnchor.constraint(equalToConstant: 70),
+            col2.widthAnchor.constraint(equalToConstant: 64),
             
-            col3.leadingAnchor.constraint(equalTo: col2.trailingAnchor, constant: 10),
+            col3.leadingAnchor.constraint(equalTo: col2.trailingAnchor, constant: 12),
             col3.topAnchor.constraint(equalTo: col1.topAnchor),
             col3.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
             
@@ -334,10 +334,10 @@ class MomiDashboardView: NSView {
             c1.leadingAnchor.constraint(equalTo: rowView.leadingAnchor),
             c1.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
             
-            c2.trailingAnchor.constraint(equalTo: rowView.leadingAnchor, constant: 95),
+            c2.trailingAnchor.constraint(equalTo: rowView.leadingAnchor, constant: 105),
             c2.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
             
-            c3.trailingAnchor.constraint(equalTo: rowView.leadingAnchor, constant: 165),
+            c3.trailingAnchor.constraint(equalTo: rowView.leadingAnchor, constant: 185),
             c3.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
             
             c4.trailingAnchor.constraint(equalTo: rowView.trailingAnchor),
