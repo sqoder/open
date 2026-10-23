@@ -92,19 +92,6 @@ public struct ContentView: View {
                             if model.tabs.count > 1 && windowWidth > 140 {
                                 SuqiTabBar(model: model)
                                     .frame(height: 36)
-                            } else if let activeTab = model.activeTab, windowWidth > 180 {
-                                VStack(spacing: 2) {
-                                    Text(activeTab.displayPathFormatted)
-                                        .font(.system(size: 11.5, weight: .regular, design: .default))
-                                        .foregroundStyle(Color.white.opacity(0.85))
-                                        .lineLimit(1)
-                                    Text("···")
-                                        .font(.system(size: 7, weight: .bold))
-                                        .foregroundStyle(Color.white.opacity(0.40))
-                                }
-                                .offset(y: 6.5)
-                                .frame(maxWidth: .infinity, maxHeight: 36)
-                                .allowsHitTesting(false)
                             }
                         }
                         .frame(height: 36)
@@ -389,7 +376,7 @@ public struct PaneContainerView: View {
                 let size = proxy.size
                 if size.width > 20 && size.height > 20 {
                     if axis == .horizontal {
-                        let dividerThickness: CGFloat = 8
+                        let dividerThickness: CGFloat = 1
                         let availableWidth = max(0, size.width - dividerThickness)
                         let firstWidth = availableWidth * fraction
                         let secondWidth = max(0, availableWidth - firstWidth)
@@ -412,7 +399,7 @@ public struct PaneContainerView: View {
                         }
                         .frame(width: size.width, height: size.height)
                     } else {
-                        let dividerThickness: CGFloat = 8
+                        let dividerThickness: CGFloat = 1
                         let availableHeight = max(0, size.height - dividerThickness)
                         let firstHeight = availableHeight * fraction
                         let secondHeight = max(0, availableHeight - firstHeight)
@@ -516,7 +503,8 @@ public final class SplitDividerNSView: NSView {
     }
 
     public override func hitTest(_ point: NSPoint) -> NSView? {
-        if bounds.contains(point) {
+        let hitRect = bounds.insetBy(dx: axis == .horizontal ? -3 : 0, dy: axis == .vertical ? -3 : 0)
+        if hitRect.contains(point) {
             return self
         }
         return super.hitTest(point)
@@ -524,20 +512,11 @@ public final class SplitDividerNSView: NSView {
 
     public override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        // Draw 1pt centered hairline divider
-        let lineRect: NSRect = {
-            if axis == .horizontal {
-                return NSRect(x: (bounds.width - 1) / 2.0, y: 0, width: 1, height: bounds.height)
-            } else {
-                return NSRect(x: 0, y: (bounds.height - 1) / 2.0, width: bounds.width, height: 1)
-            }
-        }()
-
         let color = isHovering
-            ? NSColor.white.withAlphaComponent(0.45)
-            : NSColor.white.withAlphaComponent(0.12)
+            ? NSColor.white.withAlphaComponent(0.35)
+            : NSColor.white.withAlphaComponent(0.08)
         color.setFill()
-        lineRect.fill()
+        dirtyRect.fill()
     }
 
     public override func updateTrackingAreas() {

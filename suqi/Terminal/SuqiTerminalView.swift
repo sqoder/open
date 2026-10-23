@@ -69,12 +69,7 @@ public struct SuqiTerminalView: View {
                 }
             }
 
-            // Subtle border indicator for active pane in split mode
-            if isMultiPane && isActivePane {
-                Rectangle()
-                    .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
+
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
