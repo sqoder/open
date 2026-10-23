@@ -34,7 +34,7 @@ public struct SuqiUserConfig: Sendable {
     public var foreground: String? = nil
     public var workingDirectory: String? = nil
     public var restoreLastWorkingDirectory: Bool = false
-    public var unfocusedSplitOpacity: Double = 0.75
+    public var unfocusedSplitOpacity: Double = 1.0
     public var mouseScrollMultiplier: Double = 1.0
     public var command: String? = nil
     public var fontFeatures: [String] = []

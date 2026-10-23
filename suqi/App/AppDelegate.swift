@@ -11,7 +11,6 @@ import GhosttyTerminal
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     public func applicationDidFinishLaunching(_ notification: Notification) {
-        _ = AppTerminalView.enableSmoothResizePipeline
         _ = AppTerminalView.enableContextMenuPipeline
         _ = AppTerminalView.enableDragAndDropPipeline
         _ = SuqiConfigFileWatcher.shared

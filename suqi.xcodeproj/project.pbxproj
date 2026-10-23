@@ -15,7 +15,6 @@
 		59D5983A11723D5CC511E2D1 /* AppTerminalView+Drag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048A109933C9821E6CCDC775 /* AppTerminalView+Drag.swift */; };
 		600281785E0BB9B05B2B33CB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4878471FB485E2C59461BA84 /* ContentView.swift */; };
 		623DD342294CA4174D623900 /* GhosttyTheme in Frameworks */ = {isa = PBXBuildFile; productRef = D0A104A00C20DB3A2C495424 /* GhosttyTheme */; };
-		667C70ED3BD3D760E769945C /* AppTerminalView+SmoothResize.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEFE82710EA5046473FA1A3B /* AppTerminalView+SmoothResize.swift */; };
 		734CC4189FAB9FEE7A96BFD8 /* AppTerminalView+IME.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6710207CA0BD2C3E412175F8 /* AppTerminalView+IME.swift */; };
 		74DDB09A0FAC7C1DD4A1C9D9 /* SuqiTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A55F9B778CFADA8535586F9 /* SuqiTheme.swift */; };
 		7FABD35078400B22BF9A0571 /* SuqiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C68E7248FBDD6BCF85625B38 /* SuqiApp.swift */; };
@@ -64,7 +63,6 @@
 		EE7F1F265537572EC00C0DF8 /* SuqiWindowModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuqiWindowModel.swift; sourceTree = "<group>"; };
 		F23CE583DF84BDD3B6029367 /* AppTerminalView+ContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppTerminalView+ContextMenu.swift"; sourceTree = "<group>"; };
 		F3397A324463EA5C4DC2AACB /* suqi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = suqi.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		FEFE82710EA5046473FA1A3B /* AppTerminalView+SmoothResize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppTerminalView+SmoothResize.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -145,7 +143,6 @@
 				048A109933C9821E6CCDC775 /* AppTerminalView+Drag.swift */,
 				6710207CA0BD2C3E412175F8 /* AppTerminalView+IME.swift */,
 				D6A606433D31CF15D4E3070A /* AppTerminalView+Paste.swift */,
-				FEFE82710EA5046473FA1A3B /* AppTerminalView+SmoothResize.swift */,
 				C28B2121765CAE574534042D /* SafePasteGuard.swift */,
 				BE3117CFA51D306A25BED0B7 /* SuqiTerminalSession.swift */,
 				38356A190F4A4CB490BCBAF5 /* SuqiTerminalView.swift */,
@@ -260,7 +257,6 @@
 				59D5983A11723D5CC511E2D1 /* AppTerminalView+Drag.swift in Sources */,
 				734CC4189FAB9FEE7A96BFD8 /* AppTerminalView+IME.swift in Sources */,
 				C444DC2163132C1A3CDD21C7 /* AppTerminalView+Paste.swift in Sources */,
-				667C70ED3BD3D760E769945C /* AppTerminalView+SmoothResize.swift in Sources */,
 				600281785E0BB9B05B2B33CB /* ContentView.swift in Sources */,
 				52186170DF7FEFF7A9767E8C /* PinButtonView.swift in Sources */,
 				B8F4942D7AD906582FA42B79 /* QuickTerminalController.swift in Sources */,
@@ -291,7 +287,7 @@
 				CODE_SIGN_ENTITLEMENTS = suqi/Resources/suqi.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -303,7 +299,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.0.26;
+				MARKETING_VERSION = 0.0.27;
 				PRODUCT_BUNDLE_IDENTIFIER = com.suqi.terminal;
 				PRODUCT_NAME = suqi;
 				SDKROOT = macosx;
@@ -384,7 +380,7 @@
 				CODE_SIGN_ENTITLEMENTS = suqi/Resources/suqi.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEPLOYMENT_POSTPROCESSING = YES;
@@ -396,7 +392,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.0.26;
+				MARKETING_VERSION = 0.0.27;
 				PRODUCT_BUNDLE_IDENTIFIER = com.suqi.terminal;
 				PRODUCT_NAME = suqi;
 				SDKROOT = macosx;

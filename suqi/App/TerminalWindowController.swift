@@ -216,7 +216,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         let contentView = ContentView(model: model)
         let hostingView = SuqiHostingView(rootView: contentView)
         hostingView.wantsLayer = true
-        hostingView.layer?.backgroundColor = baseBg.cgColor
+        hostingView.layer?.backgroundColor = isTranslucent ? NSColor.clear.cgColor : baseBg.cgColor
         window.contentView = hostingView
 
         // Connect native pin button to window model

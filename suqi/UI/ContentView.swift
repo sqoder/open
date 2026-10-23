@@ -126,7 +126,7 @@ public struct ContentView: View {
             }
         }
         .frame(minWidth: 80, minHeight: 32)
-        .background(themeBg)
+        .background(isTranslucent ? Color.clear : themeBg)
         .ignoresSafeArea()
         .transaction { $0.animation = nil }
         // Support dragging files from Finder and text directly into terminal window
@@ -525,7 +525,7 @@ public final class SplitDividerNSView: NSView {
             ? NSColor.white.withAlphaComponent(0.35)
             : NSColor.white.withAlphaComponent(0.08)
         color.setFill()
-        dirtyRect.fill()
+        bounds.fill()
     }
 
     public override func updateTrackingAreas() {
