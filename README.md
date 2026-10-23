@@ -25,7 +25,7 @@ Pre-built DMG installer for macOS 14.0 (Sonoma) and newer:
 
 | Platform | Version | System | Package |
 |---|---|---|---|
-| **macOS** | `v0.0.24` | macOS 14.0+ | [**Download Suqi.dmg**](./Suqi.dmg) |
+| **macOS** | `v0.0.25` | macOS 14.0+ | [**Download Suqi.dmg**](./Suqi.dmg) |
 
 ---
 
