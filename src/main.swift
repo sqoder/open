@@ -294,11 +294,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     func extractModelName(from content: String) -> String? {
         guard content.contains("<USER_SETTINGS_CHANGE>") else { return nil }
-        let pattern = #"Model Selection[`']?\s+from\s+\S+\s+to\s+(.+?)(?:\.\s+No need|\.\n|\n|</USER_SETTINGS_CHANGE>)"#
+        let pattern = #"Model Selection[`']?\s+from\s+.+?\s+to\s+(.+?)(?:\.\s+No need|\.\n|\n|</USER_SETTINGS_CHANGE>)"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
         let range = NSRange(content.startIndex..<content.endIndex, in: content)
-        if let match = regex.firstMatch(in: content, options: [], range: range),
-           let modelRange = Range(match.range(at: 1), in: content) {
+        let matches = regex.matches(in: content, options: [], range: range)
+        if let lastMatch = matches.last,
+           let modelRange = Range(lastMatch.range(at: 1), in: content) {
             let model = String(content[modelRange]).trimmingCharacters(in: .whitespacesAndNewlines)
             if !model.isEmpty && !model.contains("{") && !model.contains("let ") {
                 return model
@@ -323,6 +324,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         instance.lastTrackedFileSize = fileSize
         
         if let str = String(data: newData, encoding: .utf8) {
+            // Track model changes in newly appended text
+            if str.contains("<USER_SETTINGS_CHANGE>"), let m = extractModelName(from: str) {
+                instance.modelName = m
+            }
+            
             let pattern = #"\"output_tokens\":\s*(\d+)"#
             if let regex = try? NSRegularExpression(pattern: pattern) {
                 let matches = regex.matches(in: str, range: NSRange(str.startIndex..., in: str))
@@ -363,6 +369,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let data = line.data(using: .utf8),
                let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
                 steps.append(json)
+                
+                if (json["source"] as? String) == "USER_EXPLICIT",
+                   let userContent = json["content"] as? String,
+                   let m = extractModelName(from: userContent) {
+                    detectedModel = m
+                }
             }
         }
         
