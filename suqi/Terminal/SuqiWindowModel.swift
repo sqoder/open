@@ -95,6 +95,7 @@ public enum PaneNode: Identifiable, Equatable {
     }
 
     public func updatingFraction(splitId: UUID, fraction: CGFloat) -> PaneNode {
+        guard !fraction.isNaN, fraction.isFinite else { return self }
         switch self {
         case .terminal:
             return self

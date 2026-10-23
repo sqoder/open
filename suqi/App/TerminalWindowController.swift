@@ -22,7 +22,12 @@ public final class SuqiHostingView<Content: View>: NSHostingView<Content> {
 
 public final class SuqiTerminalWindow: NSWindow {
     public var isFullScreenTransitioning: Bool = false
+    public var isSplitDragging: Bool = false
     public let pinButton = NativePinButtonView(frame: NSRect(x: 0, y: 0, width: 14, height: 14))
+
+    override public var inLiveResize: Bool {
+        return super.inLiveResize || isSplitDragging
+    }
 
     override public var minSize: NSSize {
         get { NSSize(width: 80, height: 32) }
@@ -209,7 +214,10 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         }
 
         let contentView = ContentView(model: model)
-        window.contentView = SuqiHostingView(rootView: contentView)
+        let hostingView = SuqiHostingView(rootView: contentView)
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = baseBg.cgColor
+        window.contentView = hostingView
 
         // Connect native pin button to window model
         window.pinButton.model = model

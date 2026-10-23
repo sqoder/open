@@ -126,6 +126,7 @@ public struct ContentView: View {
             }
         }
         .frame(minWidth: 80, minHeight: 32)
+        .background(themeBg)
         .ignoresSafeArea()
         .transaction { $0.animation = nil }
         // Support dragging files from Finder and text directly into terminal window
@@ -375,10 +376,11 @@ public struct PaneContainerView: View {
             GeometryReader { proxy in
                 let size = proxy.size
                 if size.width > 20 && size.height > 20 {
+                    let safeFraction = (fraction.isNaN || !fraction.isFinite) ? 0.5 : min(max(fraction, 0.05), 0.95)
                     if axis == .horizontal {
                         let dividerThickness: CGFloat = 1
                         let availableWidth = max(0, size.width - dividerThickness)
-                        let firstWidth = availableWidth * fraction
+                        let firstWidth = max(0, availableWidth * safeFraction)
                         let secondWidth = max(0, availableWidth - firstWidth)
 
                         HStack(spacing: 0) {
@@ -388,7 +390,7 @@ public struct PaneContainerView: View {
                             SplitDividerView(
                                 axis: .horizontal,
                                 splitId: splitId,
-                                currentFraction: fraction,
+                                currentFraction: safeFraction,
                                 availableLength: availableWidth,
                                 model: model
                             )
@@ -401,7 +403,7 @@ public struct PaneContainerView: View {
                     } else {
                         let dividerThickness: CGFloat = 1
                         let availableHeight = max(0, size.height - dividerThickness)
-                        let firstHeight = availableHeight * fraction
+                        let firstHeight = max(0, availableHeight * safeFraction)
                         let secondHeight = max(0, availableHeight - firstHeight)
 
                         VStack(spacing: 0) {
@@ -411,7 +413,7 @@ public struct PaneContainerView: View {
                             SplitDividerView(
                                 axis: .vertical,
                                 splitId: splitId,
-                                currentFraction: fraction,
+                                currentFraction: safeFraction,
                                 availableLength: availableHeight,
                                 model: model
                             )
@@ -476,6 +478,10 @@ public final class SplitDividerNSView: NSView {
     var availableLength: CGFloat = 100
     weak var model: SuqiWindowModel?
 
+    private var isDragging = false
+    private var dragStartLocation: NSPoint = .zero
+    private var dragStartFraction: CGFloat = 0.5
+
     private var isHovering = false {
         didSet {
             if oldValue != isHovering {
@@ -499,12 +505,15 @@ public final class SplitDividerNSView: NSView {
     public override func resetCursorRects() {
         super.resetCursorRects()
         let cursor = (axis == .horizontal) ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown
-        addCursorRect(bounds, cursor: cursor)
+        let hitRect = bounds.insetBy(dx: axis == .horizontal ? -4 : 0, dy: axis == .vertical ? -4 : 0)
+        addCursorRect(hitRect, cursor: cursor)
     }
 
     public override func hitTest(_ point: NSPoint) -> NSView? {
-        let hitRect = bounds.insetBy(dx: axis == .horizontal ? -3 : 0, dy: axis == .vertical ? -3 : 0)
-        if hitRect.contains(point) {
+        guard let superview else { return super.hitTest(point) }
+        let localPoint = convert(point, from: superview)
+        let hitRect = bounds.insetBy(dx: axis == .horizontal ? -4 : 0, dy: axis == .vertical ? -4 : 0)
+        if hitRect.contains(localPoint) {
             return self
         }
         return super.hitTest(point)
@@ -512,7 +521,7 @@ public final class SplitDividerNSView: NSView {
 
     public override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        let color = isHovering
+        let color = (isHovering || isDragging)
             ? NSColor.white.withAlphaComponent(0.35)
             : NSColor.white.withAlphaComponent(0.08)
         color.setFill()
@@ -524,8 +533,9 @@ public final class SplitDividerNSView: NSView {
         for area in trackingAreas {
             removeTrackingArea(area)
         }
+        let hitRect = bounds.insetBy(dx: axis == .horizontal ? -4 : 0, dy: axis == .vertical ? -4 : 0)
         let area = NSTrackingArea(
-            rect: bounds,
+            rect: hitRect,
             options: [.mouseEnteredAndExited, .activeInActiveApp, .cursorUpdate],
             owner: self,
             userInfo: nil
@@ -552,22 +562,61 @@ public final class SplitDividerNSView: NSView {
             return
         }
 
-        guard availableLength > 0 else { return }
-        let startLocation = event.locationInWindow
-        let startFraction = currentFraction
+        guard availableLength > 20 else { return }
+        isDragging = true
+        needsDisplay = true
+        dragStartLocation = event.locationInWindow
+        dragStartFraction = currentFraction
 
-        guard let window = self.window else { return }
-        while true {
-            guard let nextEvent = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) else { break }
-            if nextEvent.type == .leftMouseUp {
-                break
-            }
-            let currentLocation = nextEvent.locationInWindow
-            let delta = (axis == .horizontal)
-                ? (currentLocation.x - startLocation.x)
-                : -(currentLocation.y - startLocation.y)
-            let newFraction = min(max(startFraction + delta / availableLength, 0.05), 0.95)
+        if let win = window as? SuqiTerminalWindow {
+            win.isSplitDragging = true
+        }
+    }
+
+    public override func mouseDragged(with event: NSEvent) {
+        guard isDragging, availableLength > 20 else { return }
+        let currentLocation = event.locationInWindow
+        let delta = (axis == .horizontal)
+            ? (currentLocation.x - dragStartLocation.x)
+            : -(currentLocation.y - dragStartLocation.y)
+
+        guard !delta.isNaN, !availableLength.isNaN else { return }
+        let computedFraction = dragStartFraction + (delta / availableLength)
+        guard !computedFraction.isNaN, computedFraction.isFinite else { return }
+        let newFraction = min(max(computedFraction, 0.08), 0.92)
+
+        if abs(newFraction - currentFraction) >= 0.002 {
             model?.updateSplitFraction(splitId: splitId, fraction: newFraction)
+        }
+    }
+
+    public override func mouseUp(with event: NSEvent) {
+        guard isDragging else { return }
+        isDragging = false
+        needsDisplay = true
+
+        if let win = window as? SuqiTerminalWindow {
+            win.isSplitDragging = false
+        }
+
+        let currentLocation = event.locationInWindow
+        let delta = (axis == .horizontal)
+            ? (currentLocation.x - dragStartLocation.x)
+            : -(currentLocation.y - dragStartLocation.y)
+
+        if !delta.isNaN && !availableLength.isNaN {
+            let computedFraction = dragStartFraction + (delta / availableLength)
+            if !computedFraction.isNaN && computedFraction.isFinite {
+                let finalFraction = min(max(computedFraction, 0.08), 0.92)
+                model?.updateSplitFraction(splitId: splitId, fraction: finalFraction)
+            }
+        }
+    }
+
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil && isDragging {
+            isDragging = false
         }
     }
 }
