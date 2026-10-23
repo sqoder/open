@@ -11,6 +11,7 @@ struct TokenRecord {
     let hasTool: Bool
     let text: String
     let date: Date
+    let sourceTag: String
 }
 
 struct MonitoredInstance {
@@ -25,38 +26,103 @@ struct MonitoredInstance {
     var modelName: String = "Gemini 3.8 Flash"
 }
 
-// MARK: - Native macOS Dashboard View (Clean, Professional, No Toy Emojis)
+// MARK: - Mini Sparkline Bar Chart View (Throughput Histogram)
+
+class SparklineBarChartView: NSView {
+    struct BarItem {
+        let index: Int
+        let tps: Double
+        let tokens: Int
+        let isLatest: Bool
+    }
+    
+    private var items: [BarItem] = []
+    
+    func setItems(_ records: [(index: Int, tps: Double, tokens: Int)]) {
+        self.items = records.enumerated().map { (offset, r) in
+            BarItem(index: r.index, tps: r.tps, tokens: r.tokens, isLatest: offset == 0)
+        }
+        needsDisplay = true
+    }
+    
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard !items.isEmpty else { return }
+        
+        let maxTps = max(10.0, items.map { $0.tps }.max() ?? 60.0)
+        let count = items.count
+        let totalWidth = bounds.width
+        let barWidth: CGFloat = min(42.0, (totalWidth - CGFloat(count - 1) * 8.0) / CGFloat(count))
+        let maxBarHeight: CGFloat = 32.0
+        let bottomY: CGFloat = 16.0
+        
+        for (i, item) in items.enumerated() {
+            let x = CGFloat(i) * (barWidth + 8.0)
+            let ratio = CGFloat(min(1.0, max(0.1, item.tps / maxTps)))
+            let barH = ratio * maxBarHeight
+            let barRect = NSRect(x: x, y: bottomY, width: barWidth, height: barH)
+            
+            // Capsule bar
+            let path = NSBezierPath(roundedRect: barRect, xRadius: 4, yRadius: 4)
+            if item.isLatest {
+                NSColor(red: 0.22, green: 0.85, blue: 0.52, alpha: 0.85).setFill()
+            } else {
+                NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.16) : NSColor(white: 0.0, alpha: 0.12) }.setFill()
+            }
+            path.fill()
+            
+            // Speed label above bar
+            let spdStr = String(format: "%.0f", item.tps)
+            let spdAttr: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: item.isLatest ? .bold : .medium),
+                .foregroundColor: item.isLatest ? NSColor.labelColor : NSColor.secondaryLabelColor
+            ]
+            let spdSize = (spdStr as NSString).size(withAttributes: spdAttr)
+            let spdRect = NSRect(x: x + (barWidth - spdSize.width) / 2, y: bottomY + barH + 2, width: spdSize.width, height: spdSize.height)
+            (spdStr as NSString).draw(in: spdRect, withAttributes: spdAttr)
+            
+            // Index label below bar
+            let idxStr = "#\(item.index)"
+            let idxAttr: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 9, weight: .regular),
+                .foregroundColor: NSColor.tertiaryLabelColor
+            ]
+            let idxSize = (idxStr as NSString).size(withAttributes: idxAttr)
+            let idxRect = NSRect(x: x + (barWidth - idxSize.width) / 2, y: 0, width: idxSize.width, height: idxSize.height)
+            (idxStr as NSString).draw(in: idxRect, withAttributes: idxAttr)
+        }
+    }
+}
+
+// MARK: - Modern Unified Dashboard View
 
 class MomiDashboardView: NSView {
-    // 1. Header Row
-    private let instanceLabel = NSTextField(labelWithString: "Antigravity Desktop")
-    private let statusDot = NSTextField(labelWithString: "●")
-    private let statusText = NSTextField(labelWithString: "待命")
+    // 1. Hero Card Container
+    private let heroCard = NSView()
     
-    // 2. Primary Hero Metric
+    // Header
+    private let instanceTag = NSTextField(labelWithString: "Antigravity")
+    private let statusDot = NSTextField(labelWithString: "●")
+    private let statusLabel = NSTextField(labelWithString: "待命")
+    
+    // Speed Display
     private let speedNumber = NSTextField(labelWithString: "--")
     private let speedUnit = NSTextField(labelWithString: "tok/s")
+    private let peakLabel = NSTextField(labelWithString: "峰值 --")
     
-    // 3. Three-Column Metric Grid
-    private let durTitle = NSTextField(labelWithString: "上次耗时")
-    private let durValue = NSTextField(labelWithString: "--")
+    // Sparkline Histogram
+    private let chartView = SparklineBarChartView()
     
-    private let tokTitle = NSTextField(labelWithString: "生成词数")
-    private let tokValue = NSTextField(labelWithString: "--")
+    // Meta footer inside Hero Card
+    private let metaFooter = NSTextField(labelWithString: "⏱ --s 耗时  ·  -- tok  ·  Gemini 3.8 Flash")
     
-    private let modelTitle = NSTextField(labelWithString: "活动模型")
-    private let modelValue = NSTextField(labelWithString: "--")
-    
-    // 4. Subtle Hairline Divider
-    private let divider = NSBox()
-    
-    // 5. History Section
-    private let historyTitle = NSTextField(labelWithString: "最近吞吐流水")
-    private let historyTableStack = NSStackView()
+    // 2. Stream Timeline Section
+    private let streamTitle = NSTextField(labelWithString: "最近流水记录")
+    private let streamStack = NSStackView()
     private let emptyLabel = NSTextField(labelWithString: "暂无已完成的生成记录")
     
     init() {
-        super.init(frame: NSRect(x: 0, y: 0, width: 340, height: 275))
+        super.init(frame: NSRect(x: 0, y: 0, width: 336, height: 326))
         setupUI()
     }
     
@@ -65,96 +131,66 @@ class MomiDashboardView: NSView {
     private func setupUI() {
         wantsLayer = true
         
-        // --- 1. Header Row ---
-        instanceLabel.font = .systemFont(ofSize: 11, weight: .medium)
-        instanceLabel.textColor = .secondaryLabelColor
-        instanceLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(instanceLabel)
+        // --- 1. Hero Card ---
+        heroCard.wantsLayer = true
+        heroCard.layer?.cornerRadius = 12
+        heroCard.layer?.backgroundColor = NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.06) : NSColor(white: 0.0, alpha: 0.04) }.cgColor
+        heroCard.layer?.borderWidth = 0.5
+        heroCard.layer?.borderColor = NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.12) : NSColor(white: 0.0, alpha: 0.08) }.cgColor
+        heroCard.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(heroCard)
+        
+        instanceTag.font = .systemFont(ofSize: 11.5, weight: .semibold)
+        instanceTag.textColor = .labelColor
+        instanceTag.translatesAutoresizingMaskIntoConstraints = false
+        heroCard.addSubview(instanceTag)
         
         statusDot.font = .systemFont(ofSize: 8, weight: .bold)
         statusDot.textColor = .tertiaryLabelColor
         statusDot.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(statusDot)
+        heroCard.addSubview(statusDot)
         
-        statusText.font = .systemFont(ofSize: 11, weight: .regular)
-        statusText.textColor = .secondaryLabelColor
-        statusText.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(statusText)
+        statusLabel.font = .systemFont(ofSize: 11, weight: .medium)
+        statusLabel.textColor = .secondaryLabelColor
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        heroCard.addSubview(statusLabel)
         
-        // --- 2. Speed Hero ---
-        speedNumber.font = .monospacedDigitSystemFont(ofSize: 34, weight: .semibold)
+        speedNumber.font = .monospacedDigitSystemFont(ofSize: 36, weight: .bold)
         speedNumber.textColor = .labelColor
         speedNumber.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(speedNumber)
+        heroCard.addSubview(speedNumber)
         
-        speedUnit.font = .systemFont(ofSize: 13, weight: .regular)
+        speedUnit.font = .systemFont(ofSize: 13, weight: .medium)
         speedUnit.textColor = .secondaryLabelColor
         speedUnit.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(speedUnit)
+        heroCard.addSubview(speedUnit)
         
-        // --- 3. Three-Column Metric Grid ---
-        durTitle.font = .systemFont(ofSize: 10, weight: .regular)
-        durTitle.textColor = .tertiaryLabelColor
-        durTitle.translatesAutoresizingMaskIntoConstraints = false
+        peakLabel.font = .monospacedDigitSystemFont(ofSize: 10.5, weight: .regular)
+        peakLabel.textColor = .tertiaryLabelColor
+        peakLabel.alignment = .right
+        peakLabel.translatesAutoresizingMaskIntoConstraints = false
+        heroCard.addSubview(peakLabel)
         
-        durValue.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        durValue.textColor = .labelColor
-        durValue.translatesAutoresizingMaskIntoConstraints = false
+        chartView.translatesAutoresizingMaskIntoConstraints = false
+        heroCard.addSubview(chartView)
         
-        tokTitle.font = .systemFont(ofSize: 10, weight: .regular)
-        tokTitle.textColor = .tertiaryLabelColor
-        tokTitle.translatesAutoresizingMaskIntoConstraints = false
+        metaFooter.font = .systemFont(ofSize: 10.5, weight: .regular)
+        metaFooter.textColor = .secondaryLabelColor
+        metaFooter.lineBreakMode = .byTruncatingTail
+        metaFooter.translatesAutoresizingMaskIntoConstraints = false
+        heroCard.addSubview(metaFooter)
         
-        tokValue.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        tokValue.textColor = .labelColor
-        tokValue.translatesAutoresizingMaskIntoConstraints = false
+        // --- 2. Stream Timeline Section ---
+        streamTitle.font = .systemFont(ofSize: 11, weight: .semibold)
+        streamTitle.textColor = .secondaryLabelColor
+        streamTitle.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(streamTitle)
         
-        modelTitle.font = .systemFont(ofSize: 10, weight: .regular)
-        modelTitle.textColor = .tertiaryLabelColor
-        modelTitle.translatesAutoresizingMaskIntoConstraints = false
-        
-        modelValue.font = .systemFont(ofSize: 11.5, weight: .medium)
-        modelValue.textColor = .labelColor
-        modelValue.lineBreakMode = .byTruncatingTail
-        modelValue.translatesAutoresizingMaskIntoConstraints = false
-        
-        let col1 = NSStackView(views: [durTitle, durValue])
-        col1.orientation = .vertical
-        col1.alignment = .leading
-        col1.spacing = 2
-        col1.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(col1)
-        
-        let col2 = NSStackView(views: [tokTitle, tokValue])
-        col2.orientation = .vertical
-        col2.alignment = .leading
-        col2.spacing = 2
-        col2.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(col2)
-        
-        let col3 = NSStackView(views: [modelTitle, modelValue])
-        col3.orientation = .vertical
-        col3.alignment = .leading
-        col3.spacing = 2
-        col3.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(col3)
-        
-        // --- 4. Hairline Divider ---
-        divider.boxType = .separator
-        divider.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(divider)
-        
-        // --- 5. History Section ---
-        historyTitle.font = .systemFont(ofSize: 11, weight: .semibold)
-        historyTitle.textColor = .secondaryLabelColor
-        historyTitle.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(historyTitle)
-        
-        historyTableStack.orientation = .vertical
-        historyTableStack.spacing = 1
-        historyTableStack.distribution = .fillEqually
-        historyTableStack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(historyTableStack)
+        streamStack.orientation = .vertical
+        streamStack.spacing = 3
+        streamStack.distribution = .fillEqually
+        streamStack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(streamStack)
         
         emptyLabel.font = .systemFont(ofSize: 11, weight: .regular)
         emptyLabel.textColor = .tertiaryLabelColor
@@ -163,83 +199,94 @@ class MomiDashboardView: NSView {
         addSubview(emptyLabel)
         
         NSLayoutConstraint.activate([
-            // Header Row
-            instanceLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            instanceLabel.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+            // Hero Card
+            heroCard.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            heroCard.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            heroCard.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            heroCard.heightAnchor.constraint(equalToConstant: 168),
             
-            statusText.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-            statusText.centerYAnchor.constraint(equalTo: instanceLabel.centerYAnchor),
+            instanceTag.leadingAnchor.constraint(equalTo: heroCard.leadingAnchor, constant: 14),
+            instanceTag.topAnchor.constraint(equalTo: heroCard.topAnchor, constant: 12),
             
-            statusDot.trailingAnchor.constraint(equalTo: statusText.leadingAnchor, constant: -4),
-            statusDot.centerYAnchor.constraint(equalTo: statusText.centerYAnchor, constant: -0.5),
+            statusLabel.trailingAnchor.constraint(equalTo: heroCard.trailingAnchor, constant: -14),
+            statusLabel.centerYAnchor.constraint(equalTo: instanceTag.centerYAnchor),
             
-            // Speed Hero
-            speedNumber.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            speedNumber.topAnchor.constraint(equalTo: instanceLabel.bottomAnchor, constant: 4),
+            statusDot.trailingAnchor.constraint(equalTo: statusLabel.leadingAnchor, constant: -4),
+            statusDot.centerYAnchor.constraint(equalTo: statusLabel.centerYAnchor, constant: -0.5),
+            
+            speedNumber.leadingAnchor.constraint(equalTo: heroCard.leadingAnchor, constant: 14),
+            speedNumber.topAnchor.constraint(equalTo: instanceTag.bottomAnchor, constant: 2),
             
             speedUnit.leadingAnchor.constraint(equalTo: speedNumber.trailingAnchor, constant: 6),
             speedUnit.firstBaselineAnchor.constraint(equalTo: speedNumber.firstBaselineAnchor),
             
-            // 3-Column Metric Grid (Optimized widths so model names like "Gemini 3.8 Flash (Medium)" never truncate)
-            col1.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            col1.topAnchor.constraint(equalTo: speedNumber.bottomAnchor, constant: 8),
-            col1.widthAnchor.constraint(equalToConstant: 54),
+            peakLabel.trailingAnchor.constraint(equalTo: heroCard.trailingAnchor, constant: -14),
+            peakLabel.firstBaselineAnchor.constraint(equalTo: speedNumber.firstBaselineAnchor),
             
-            col2.leadingAnchor.constraint(equalTo: col1.trailingAnchor, constant: 10),
-            col2.topAnchor.constraint(equalTo: col1.topAnchor),
-            col2.widthAnchor.constraint(equalToConstant: 64),
+            chartView.leadingAnchor.constraint(equalTo: heroCard.leadingAnchor, constant: 14),
+            chartView.trailingAnchor.constraint(equalTo: heroCard.trailingAnchor, constant: -14),
+            chartView.topAnchor.constraint(equalTo: speedNumber.bottomAnchor, constant: 6),
+            chartView.heightAnchor.constraint(equalToConstant: 52),
             
-            col3.leadingAnchor.constraint(equalTo: col2.trailingAnchor, constant: 12),
-            col3.topAnchor.constraint(equalTo: col1.topAnchor),
-            col3.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            metaFooter.leadingAnchor.constraint(equalTo: heroCard.leadingAnchor, constant: 14),
+            metaFooter.trailingAnchor.constraint(equalTo: heroCard.trailingAnchor, constant: -14),
+            metaFooter.topAnchor.constraint(equalTo: chartView.bottomAnchor, constant: 8),
             
-            // Divider
-            divider.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            divider.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            divider.topAnchor.constraint(equalTo: col1.bottomAnchor, constant: 12),
+            // Stream Section
+            streamTitle.topAnchor.constraint(equalTo: heroCard.bottomAnchor, constant: 11),
+            streamTitle.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             
-            // History Section
-            historyTitle.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            historyTitle.topAnchor.constraint(equalTo: divider.bottomAnchor, constant: 10),
-            
-            historyTableStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            historyTableStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-            historyTableStack.topAnchor.constraint(equalTo: historyTitle.bottomAnchor, constant: 6),
-            historyTableStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            streamStack.topAnchor.constraint(equalTo: streamTitle.bottomAnchor, constant: 6),
+            streamStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            streamStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            streamStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
             
             emptyLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            emptyLabel.centerYAnchor.constraint(equalTo: historyTableStack.centerYAnchor)
+            emptyLabel.centerYAnchor.constraint(equalTo: streamStack.centerYAnchor)
         ])
     }
     
-    func update(instance: MonitoredInstance) {
-        let last = instance.records.last
-        
-        // 1. Instance Title
-        instanceLabel.stringValue = instance.name
-        
-        // 2. Status Dot & Text
-        if instance.isGenerating {
+    func update(
+        displaySpeed: Double,
+        isConcurrent: Bool,
+        activeGeneratingCount: Int,
+        activeInstanceName: String,
+        latestRecord: TokenRecord?,
+        allRecords: [TokenRecord],
+        activeModelName: String
+    ) {
+        // 1. Instance Title & Concurrency Badge
+        if isConcurrent {
+            instanceTag.stringValue = "Antigravity (双路并发)"
             statusDot.textColor = .systemOrange
-            statusText.stringValue = "生成中..."
-            statusText.textColor = .systemOrange
-        } else if last != nil {
-            statusDot.textColor = .systemGreen
-            statusText.stringValue = "活跃"
-            statusText.textColor = .secondaryLabelColor
+            statusLabel.stringValue = "双实例生成中..."
+            statusLabel.textColor = .systemOrange
+        } else if activeGeneratingCount > 0 {
+            instanceTag.stringValue = activeInstanceName
+            statusDot.textColor = .systemOrange
+            statusLabel.stringValue = "生成中..."
+            statusLabel.textColor = .systemOrange
+        } else if latestRecord != nil {
+            instanceTag.stringValue = activeInstanceName
+            statusDot.textColor = NSColor(red: 0.22, green: 0.85, blue: 0.52, alpha: 1.0)
+            statusLabel.stringValue = "活跃"
+            statusLabel.textColor = .secondaryLabelColor
         } else {
+            instanceTag.stringValue = "Antigravity"
             statusDot.textColor = .tertiaryLabelColor
-            statusText.stringValue = "待命"
-            statusText.textColor = .tertiaryLabelColor
+            statusLabel.stringValue = "待命"
+            statusLabel.textColor = .tertiaryLabelColor
         }
         
-        // 3. Hero Speed Display
-        if let spd = last?.tps, spd > 0 {
-            speedNumber.stringValue = String(format: "%.1f", spd)
-            if instance.isGenerating {
+        // 2. Hero Speed
+        if displaySpeed > 0 {
+            speedNumber.stringValue = String(format: "%.1f", displaySpeed)
+            if activeGeneratingCount > 0 {
                 speedNumber.textColor = .systemOrange
-            } else if spd >= 40.0 {
-                speedNumber.textColor = NSColor(red: 0.22, green: 0.82, blue: 0.48, alpha: 1.0)
+            } else if displaySpeed >= 80.0 {
+                speedNumber.textColor = NSColor(red: 0.22, green: 0.85, blue: 0.52, alpha: 1.0)
+            } else if displaySpeed >= 40.0 {
+                speedNumber.textColor = NSColor(red: 0.35, green: 0.68, blue: 1.0, alpha: 1.0)
             } else {
                 speedNumber.textColor = .labelColor
             }
@@ -248,103 +295,147 @@ class MomiDashboardView: NSView {
             speedNumber.textColor = .secondaryLabelColor
         }
         
-        // 4. Metric Columns
-        if let r = last {
-            durValue.stringValue = String(format: "%.1fs", r.duration)
-            tokValue.stringValue = "\(r.tokens) tok"
+        // 3. Peak Speed
+        let maxTps = allRecords.map { $0.tps }.max() ?? 0.0
+        if maxTps > 0 {
+            peakLabel.stringValue = String(format: "峰值 %.1f", maxTps)
         } else {
-            durValue.stringValue = "--"
-            tokValue.stringValue = "--"
+            peakLabel.stringValue = "峰值 --"
         }
         
-        modelValue.stringValue = instance.modelName
-        modelValue.toolTip = instance.modelName
+        // 4. Sparkline Histogram (Recent 5 turns)
+        let recent5 = Array(allRecords.prefix(5))
+        if !recent5.isEmpty {
+            chartView.isHidden = false
+            chartView.setItems(recent5.enumerated().map { (idx, r) in
+                (index: idx + 1, tps: r.tps, tokens: r.tokens)
+            })
+        } else {
+            chartView.isHidden = true
+        }
         
-        // 5. History Table
-        for v in historyTableStack.arrangedSubviews {
-            historyTableStack.removeArrangedSubview(v)
+        // 5. Metadata Footer
+        if let r = latestRecord {
+            let durStr = String(format: "%.1fs 耗时", r.duration)
+            let tokStr = "\(r.tokens) tokens"
+            let srcStr = r.sourceTag.isEmpty ? "" : " · \(r.sourceTag)"
+            metaFooter.stringValue = "⏱ \(durStr)  ·  \(tokStr)  ·  \(activeModelName)\(srcStr)"
+        } else {
+            metaFooter.stringValue = "⏱ --s 耗时  ·  -- tokens  ·  \(activeModelName)"
+        }
+        
+        // 6. Stream Timeline Section
+        for v in streamStack.arrangedSubviews {
+            streamStack.removeArrangedSubview(v)
             v.removeFromSuperview()
         }
         
-        let recent = Array(instance.records.suffix(5).reversed())
-        if recent.isEmpty {
+        if allRecords.isEmpty {
             emptyLabel.isHidden = false
-            historyTableStack.isHidden = true
+            streamStack.isHidden = true
         } else {
             emptyLabel.isHidden = true
-            historyTableStack.isHidden = false
+            streamStack.isHidden = false
             
-            // Header Row
-            let header = createTableRow(index: "#", tokens: "词数", duration: "耗时", speed: "速率", isHeader: true)
-            historyTableStack.addArrangedSubview(header)
-            
-            // Data Rows
-            for (idx, r) in recent.enumerated() {
-                let row = createTableRow(
-                    index: "\(idx + 1)",
-                    tokens: "\(r.tokens)",
-                    duration: String(format: "%.1fs", r.duration),
-                    speed: String(format: "%.1f tok/s", r.tps),
-                    isHeader: false
+            for (idx, r) in recent5.enumerated() {
+                let row = createStreamRow(
+                    idx: idx + 1,
+                    sourceTag: r.sourceTag,
+                    tokens: r.tokens,
+                    duration: r.duration,
+                    tps: r.tps,
+                    maxTps: maxTps
                 )
-                historyTableStack.addArrangedSubview(row)
+                streamStack.addArrangedSubview(row)
             }
         }
         
         needsDisplay = true
     }
     
-    private func createTableRow(index: String, tokens: String, duration: String, speed: String, isHeader: Bool) -> NSView {
-        let rowView = NSView()
-        rowView.translatesAutoresizingMaskIntoConstraints = false
-        rowView.heightAnchor.constraint(equalToConstant: isHeader ? 16 : 18).isActive = true
+    private func createStreamRow(idx: Int, sourceTag: String, tokens: Int, duration: Double, tps: Double, maxTps: Double) -> NSView {
+        let row = NSView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.heightAnchor.constraint(equalToConstant: 20).isActive = true
         
-        let c1 = NSTextField(labelWithString: index)
-        let c2 = NSTextField(labelWithString: tokens)
-        let c3 = NSTextField(labelWithString: duration)
-        let c4 = NSTextField(labelWithString: speed)
+        let idxLabel = NSTextField(labelWithString: "#\(idx)")
+        idxLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .bold)
+        idxLabel.textColor = .tertiaryLabelColor
+        idxLabel.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(idxLabel)
         
-        let font = isHeader ? NSFont.systemFont(ofSize: 10, weight: .medium) : NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        let textColor = isHeader ? NSColor.tertiaryLabelColor : NSColor.labelColor
+        // Source Tag Badge (CLI / Desktop)
+        let tagLabel = NSTextField(labelWithString: sourceTag)
+        tagLabel.font = .systemFont(ofSize: 9, weight: .medium)
+        tagLabel.textColor = .secondaryLabelColor
+        tagLabel.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(tagLabel)
         
-        c1.font = font
-        c1.textColor = isHeader ? textColor : NSColor.tertiaryLabelColor
-        c1.translatesAutoresizingMaskIntoConstraints = false
-        rowView.addSubview(c1)
+        let detailLabel = NSTextField(labelWithString: "\(tokens) tok · \(String(format: "%.1fs", duration))")
+        detailLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        detailLabel.textColor = .labelColor
+        detailLabel.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(detailLabel)
         
-        c2.font = font
-        c2.textColor = textColor
-        c2.alignment = .right
-        c2.translatesAutoresizingMaskIntoConstraints = false
-        rowView.addSubview(c2)
+        // Mini Progress Speed Bar
+        let barContainer = NSView()
+        barContainer.wantsLayer = true
+        barContainer.layer?.cornerRadius = 2
+        barContainer.layer?.backgroundColor = NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1.0, alpha: 0.08) : NSColor(white: 0.0, alpha: 0.06) }.cgColor
+        barContainer.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(barContainer)
         
-        c3.font = font
-        c3.textColor = isHeader ? textColor : NSColor.secondaryLabelColor
-        c3.alignment = .right
-        c3.translatesAutoresizingMaskIntoConstraints = false
-        rowView.addSubview(c3)
+        let barFill = NSView()
+        barFill.wantsLayer = true
+        barFill.layer?.cornerRadius = 2
+        let ratio = CGFloat(min(1.0, max(0.1, maxTps > 0 ? tps / maxTps : 0.5)))
+        let fillColor: NSColor
+        if tps >= 80.0 {
+            fillColor = NSColor(red: 0.22, green: 0.85, blue: 0.52, alpha: 0.85)
+        } else if tps >= 40.0 {
+            fillColor = NSColor(red: 0.35, green: 0.68, blue: 1.0, alpha: 0.85)
+        } else {
+            fillColor = NSColor(white: 1.0, alpha: 0.35)
+        }
+        barFill.layer?.backgroundColor = fillColor.cgColor
+        barFill.translatesAutoresizingMaskIntoConstraints = false
+        barContainer.addSubview(barFill)
         
-        c4.font = font
-        c4.textColor = textColor
-        c4.alignment = .right
-        c4.translatesAutoresizingMaskIntoConstraints = false
-        rowView.addSubview(c4)
+        let speedLabel = NSTextField(labelWithString: String(format: "%.1f tok/s", tps))
+        speedLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+        speedLabel.textColor = tps >= 80.0 ? NSColor(red: 0.22, green: 0.85, blue: 0.52, alpha: 1.0) : .labelColor
+        speedLabel.alignment = .right
+        speedLabel.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(speedLabel)
         
         NSLayoutConstraint.activate([
-            c1.leadingAnchor.constraint(equalTo: rowView.leadingAnchor),
-            c1.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
+            idxLabel.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 4),
+            idxLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            idxLabel.widthAnchor.constraint(equalToConstant: 20),
             
-            c2.trailingAnchor.constraint(equalTo: rowView.leadingAnchor, constant: 105),
-            c2.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
+            tagLabel.leadingAnchor.constraint(equalTo: idxLabel.trailingAnchor, constant: 2),
+            tagLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            tagLabel.widthAnchor.constraint(equalToConstant: 44),
             
-            c3.trailingAnchor.constraint(equalTo: rowView.leadingAnchor, constant: 185),
-            c3.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
+            detailLabel.leadingAnchor.constraint(equalTo: tagLabel.trailingAnchor, constant: 4),
+            detailLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
             
-            c4.trailingAnchor.constraint(equalTo: rowView.trailingAnchor),
-            c4.centerYAnchor.constraint(equalTo: rowView.centerYAnchor),
+            speedLabel.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -4),
+            speedLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            speedLabel.widthAnchor.constraint(equalToConstant: 80),
+            
+            barContainer.trailingAnchor.constraint(equalTo: speedLabel.leadingAnchor, constant: -8),
+            barContainer.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            barContainer.widthAnchor.constraint(equalToConstant: 42),
+            barContainer.heightAnchor.constraint(equalToConstant: 4),
+            
+            barFill.leadingAnchor.constraint(equalTo: barContainer.leadingAnchor),
+            barFill.topAnchor.constraint(equalTo: barContainer.topAnchor),
+            barFill.bottomAnchor.constraint(equalTo: barContainer.bottomAnchor),
+            barFill.widthAnchor.constraint(equalTo: barContainer.widthAnchor, multiplier: ratio)
         ])
         
-        return rowView
+        return row
     }
 }
 
@@ -355,14 +446,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var updateTimer: Timer?
     
     var instances: [MonitoredInstance] = []
-    var activeInstanceIndex: Int = 0
     var isChecking: Bool = false
     
     // Persistent menu and dashboard view
     let mainMenu = NSMenu()
     let dashboardView = MomiDashboardView()
     let dashboardMenuItem = NSMenuItem()
-    let instanceMenuItem = NSMenuItem(title: "监听实例", action: nil, keyEquivalent: "")
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -396,19 +485,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         mainMenu.autoenablesItems = false
         mainMenu.delegate = self
         
-        // 1. Dashboard View (Header, Speed Hero, Metrics, History Table)
+        // 1. Dashboard View (Hero Card + Sparkline Chart + Stream List)
         dashboardMenuItem.view = dashboardView
         mainMenu.addItem(dashboardMenuItem)
         
         mainMenu.addItem(NSMenuItem.separator())
         
-        // 2. Instance Switcher Submenu
-        updateInstanceSubmenu()
-        mainMenu.addItem(instanceMenuItem)
-        
-        mainMenu.addItem(NSMenuItem.separator())
-        
-        // 3. Actions
+        // 2. Clean Actions (NO manual instance switching - auto combined & smart detected!)
         let refreshItem = NSMenuItem(title: "刷新数据", action: #selector(refreshAction), keyEquivalent: "r")
         refreshItem.target = self
         mainMenu.addItem(refreshItem)
@@ -426,56 +509,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = mainMenu
     }
     
-    func updateInstanceSubmenu() {
-        guard activeInstanceIndex >= 0 && activeInstanceIndex < instances.count else { return }
-        let active = instances[activeInstanceIndex]
-        let now = Date()
-        
-        instanceMenuItem.title = "监听实例: \(active.name)"
-        
-        let subMenu = NSMenu()
-        for (idx, inst) in instances.enumerated() {
-            let isCur = (idx == activeInstanceIndex)
-            let check = isCur ? "✓ " : "    "
-            let statusDesc: String
-            
-            if inst.isGenerating {
-                statusDesc = "生成中..."
-            } else if isCur {
-                statusDesc = "当前活跃"
-            } else if inst.latestModDate != .distantPast {
-                let diffMins = Int(now.timeIntervalSince(inst.latestModDate) / 60)
-                if diffMins < 60 {
-                    statusDesc = "\(diffMins) 分钟前"
-                } else if diffMins < 1440 {
-                    statusDesc = "\(diffMins / 60) 小时前"
-                } else {
-                    statusDesc = "离线"
-                }
-            } else {
-                statusDesc = "离线"
-            }
-            
-            let item = NSMenuItem(
-                title: "\(check)\(inst.name) (\(statusDesc))",
-                action: #selector(switchInstanceAction(_:)),
-                keyEquivalent: ""
-            )
-            item.tag = idx
-            item.target = self
-            subMenu.addItem(item)
-        }
-        instanceMenuItem.submenu = subMenu
-    }
-    
     func menuWillOpen(_ menu: NSMenu) {
-        guard activeInstanceIndex >= 0 && activeInstanceIndex < instances.count else { return }
-        let active = instances[activeInstanceIndex]
-        dashboardView.update(instance: active)
-        updateInstanceSubmenu()
+        updateDashboardState()
     }
     
-    /// Ultra-fast 1-level session directory search (only 1-2ms, never enumerates 100k files)
     func fastFindLatestTranscript(in brainDir: URL) -> (url: URL, modDate: Date)? {
         guard let sessionDirs = try? FileManager.default.contentsOfDirectory(
             at: brainDir,
@@ -492,7 +529,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var latestFile: URL?
         var latestDate: Date = .distantPast
         
-        // Check only top 5 most recently modified session folders
         for (dir, _) in sortedDirs.prefix(5) {
             let transcript = dir.appendingPathComponent(".system_generated/logs/transcript.jsonl")
             if let attrs = try? transcript.resourceValues(forKeys: [.contentModificationDateKey]),
@@ -510,7 +546,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return nil
     }
     
-    /// Reads head of file (8KB) for initial session metadata
     func readHead(url: URL, maxBytes: Int = 8192) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
@@ -518,7 +553,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return String(data: data, encoding: .utf8)
     }
     
-    /// Reads only tail of the file (64KB)
     func readTail(url: URL, maxBytes: UInt64 = 65536) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
@@ -529,7 +563,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return String(data: data, encoding: .utf8)
     }
     
-    /// Safe and accurate model name extraction from user settings changes
     func extractModelName(from content: String) -> String? {
         guard content.contains("<USER_SETTINGS_CHANGE>") else { return nil }
         let pattern = #"Model Selection[`']?\s+from\s+\S+\s+to\s+(.+?)(?:\.\s+No need|\.\n|\n|</USER_SETTINGS_CHANGE>)"#
@@ -545,10 +578,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return nil
     }
     
-    func parseTranscript(url: URL, fileModDate: Date) -> (records: [TokenRecord], model: String?) {
+    func parseTranscript(url: URL, fileModDate: Date, sourceTag: String) -> (records: [TokenRecord], model: String?) {
         var detectedModel: String? = nil
         
-        // 1. Extract model name safely from head (step 0) or tail
         if let head = readHead(url: url), let m = extractModelName(from: head) {
             detectedModel = m
         }
@@ -599,20 +631,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                    let tEnd = isoFormatter.date(from: nextAtStr) {
                     let dur = max(0.5, tEnd.timeIntervalSince(tStart))
                     let tps = Double(outTokens) / dur
-                    records.append(TokenRecord(step: stepIdx, tokens: outTokens, duration: dur, tps: tps, hasTool: hasTool, text: text, date: tStart))
+                    records.append(TokenRecord(step: stepIdx, tokens: outTokens, duration: dur, tps: tps, hasTool: hasTool, text: text, date: tStart, sourceTag: sourceTag))
                 }
             } else {
                 let dur = max(0.5, fileModDate.timeIntervalSince(tStart))
                 if outTokens > 0 {
                     let tps = Double(outTokens) / dur
-                    records.append(TokenRecord(step: stepIdx, tokens: outTokens, duration: dur, tps: tps, hasTool: hasTool, text: text, date: tStart))
+                    records.append(TokenRecord(step: stepIdx, tokens: outTokens, duration: dur, tps: tps, hasTool: hasTool, text: text, date: tStart, sourceTag: sourceTag))
                 }
             }
         }
         return (records, detectedModel)
     }
     
-    /// Background asynchronous update: NEVER blocks main thread or causes UI stutter
+    /// Background asynchronous update: monitors both instances simultaneously
     func triggerBackgroundUpdate() {
         if isChecking { return }
         isChecking = true
@@ -636,7 +668,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     
                     if latest.modDate != updatedInstances[i].lastParsedModDate {
                         updatedInstances[i].lastParsedModDate = latest.modDate
-                        let (recs, model) = self.parseTranscript(url: latest.url, fileModDate: latest.modDate)
+                        let (recs, model) = self.parseTranscript(url: latest.url, fileModDate: latest.modDate, sourceTag: updatedInstances[i].shortTag)
                         if let model = model {
                             updatedInstances[i].modelName = model
                         }
@@ -648,59 +680,74 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
             
-            var bestIndex = self.activeInstanceIndex
-            var bestDate: Date = .distantPast
-            var anyGenerating = false
-            
-            for (idx, inst) in updatedInstances.enumerated() {
-                if inst.isGenerating {
-                    bestIndex = idx
-                    anyGenerating = true
-                    break
-                }
-                if inst.latestModDate > bestDate {
-                    bestDate = inst.latestModDate
-                    bestIndex = idx
-                }
-            }
-            
             DispatchQueue.main.async {
                 self.isChecking = false
                 self.instances = updatedInstances
-                if self.activeInstanceIndex != bestIndex {
-                    self.activeInstanceIndex = bestIndex
-                    hasChanges = true
-                }
-                
-                let active = self.instances[self.activeInstanceIndex]
-                
-                // Update status bar button text
-                if let last = active.records.last {
-                    if anyGenerating {
-                        self.statusItem.button?.title = String(format: "%.1f t/s · 生成中", last.tps)
-                    } else {
-                        self.statusItem.button?.title = String(format: "%.1f tok/s", last.tps)
-                    }
-                } else {
-                    self.statusItem.button?.title = "-- tok/s"
-                }
-                
-                // Live update open menu dashboard without tearing menu
                 if hasChanges {
-                    self.dashboardView.update(instance: active)
-                    self.updateInstanceSubmenu()
+                    self.updateDashboardState()
                 }
             }
         }
     }
     
-    @objc func switchInstanceAction(_ sender: NSMenuItem) {
-        if sender.tag >= 0 && sender.tag < instances.count {
-            activeInstanceIndex = sender.tag
-            let active = instances[activeInstanceIndex]
-            dashboardView.update(instance: active)
-            updateInstanceSubmenu()
+    /// Computes aggregated throughput, handles concurrency, updates UI
+    func updateDashboardState() {
+        // Find generating instances
+        let generatingInstances = instances.filter { $0.isGenerating }
+        let isConcurrent = generatingInstances.count > 1
+        
+        // Merge all records chronologically
+        var allRecords: [TokenRecord] = []
+        for inst in instances {
+            allRecords.append(contentsOf: inst.records)
         }
+        allRecords.sort { $0.date > $1.date }
+        
+        let latestRecord = allRecords.first
+        
+        // Speed calculation
+        let displaySpeed: Double
+        if isConcurrent {
+            // Sum throughput of both generating engines!
+            displaySpeed = generatingInstances.reduce(0.0) { $0 + ($1.records.last?.tps ?? 0.0) }
+            statusItem.button?.title = String(format: "%.1f t/s · 双路并发", displaySpeed)
+        } else if let gen = generatingInstances.first {
+            displaySpeed = gen.records.last?.tps ?? 0.0
+            statusItem.button?.title = String(format: "%.1f t/s · 生成中", displaySpeed)
+        } else if let last = latestRecord {
+            displaySpeed = last.tps
+            statusItem.button?.title = String(format: "%.1f tok/s", displaySpeed)
+        } else {
+            displaySpeed = 0.0
+            statusItem.button?.title = "-- tok/s"
+        }
+        
+        // Determine active instance display name
+        let activeName: String
+        let activeModel: String
+        if isConcurrent {
+            activeName = "Antigravity (双路并发)"
+            activeModel = instances.map { $0.modelName }.joined(separator: " + ")
+        } else if let gen = generatingInstances.first {
+            activeName = gen.name
+            activeModel = gen.modelName
+        } else if let mostRecent = instances.max(by: { $0.latestModDate < $1.latestModDate }), mostRecent.latestModDate != .distantPast {
+            activeName = mostRecent.name
+            activeModel = mostRecent.modelName
+        } else {
+            activeName = "Antigravity"
+            activeModel = instances.first?.modelName ?? "Gemini 3.8 Flash"
+        }
+        
+        dashboardView.update(
+            displaySpeed: displaySpeed,
+            isConcurrent: isConcurrent,
+            activeGeneratingCount: generatingInstances.count,
+            activeInstanceName: activeName,
+            latestRecord: latestRecord,
+            allRecords: allRecords,
+            activeModelName: activeModel
+        )
     }
     
     @objc func refreshAction() {
@@ -711,9 +758,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     
     @objc func openLogDirAction() {
-        guard activeInstanceIndex >= 0 && activeInstanceIndex < instances.count else { return }
-        let active = instances[activeInstanceIndex]
-        if let dir = active.latestURL?.deletingLastPathComponent() {
+        let mostRecent = instances.max(by: { $0.latestModDate < $1.latestModDate })
+        if let dir = mostRecent?.latestURL?.deletingLastPathComponent() {
             NSWorkspace.shared.open(dir)
         }
     }
