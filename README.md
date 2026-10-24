@@ -1,4 +1,4 @@
-# 🌊 momi · AI 实时测速仪 (v1.1.0)
+# 🌊 momi · AI 实时测速仪 (v1.5.2)
 
 <p align="center">
   <img src="resources/icon.jpg" width="160" height="160" style="border-radius: 24px;" alt="momi Icon" />
@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>专为 macOS 设计的轻量级 AI 实时输出速率 (Tokens Per Second) 测速仪</strong><br>
-  常驻 Mac 顶部系统菜单栏 · 同时支持 Antigravity Desktop / CLI / IDE · 零依赖原生架构
+  常驻 Mac 顶部系统菜单栏 · 支持 Antigravity / Qoder / Pi / Claude Code / Codex · 零依赖原生架构
 </p>
 
 ---
@@ -14,9 +14,9 @@
 ## ✨ 核心特性
 
 - ⚡ **实时 TPS 测速**：在 Mac 菜单栏常驻显示模型生成速率（如 `⚡ 85.2 tok/s`），生成中动态提示 `⚡ 正在生成...`。
-- 📱 **多工具/多实例联合监听**：自动同时监听 **Antigravity Desktop**、**Antigravity CLI (`agy`)** 与 **Antigravity IDE**，无缝自动切换当前活动会话。
+- 📱 **多工具/多实例联合监听**：自动同时监听 **Antigravity Desktop / CLI**、**Qoder**、**Pi**、**Claude Code**、**Codex App** 与 **Codex CLI**，无缝自动切换当前活动会话。
 - 📊 **毫秒级真实数据**：直接读取底层官方服务端的分词计数（`output_tokens`）与真实物理时钟耗时，**拒绝粗略字数估算，100% 真实吞吐量**。
-- 📜 **历史记录下拉面板**：点击菜单栏一键查看最近 5 次生成的耗时、Token 数及速率明细，并展示各实例状态。
+- 📜 **用量统计窗口**：查看全部历史的输入 / 输出 / 缓存总量，并按模型或 Agent 排行。
 - 🧠 **模型与会话自动识别**：自动展示当前模型（如 `Gemini 3.8 Flash (High)`）与当前对话 ID。
 - 🪶 **原生极简，零额外负担**：
   - 基于 Swift + AppKit 原生编写，已编译为单一独立二进制。

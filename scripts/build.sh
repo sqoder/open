@@ -17,8 +17,11 @@ cp "$DIR"/resources/agents/*.png "$APP_DIR/Contents/Resources/"
 swiftc -O "$DIR/src/main.swift" -o "$APP_DIR/Contents/MacOS/momi"
 
 echo "==> 安装至 /Applications/momi.app..."
-pkill -f "momi" 2>/dev/null || true
+pkill -f "/Applications/momi.app/Contents/MacOS/momi" 2>/dev/null || true
 rm -rf /Applications/momi.app
 cp -R "$APP_DIR" /Applications/momi.app
+
+# 未整包签名时系统会拒绝托管菜单栏项（spctl: code has no resources）
+codesign --force --deep --sign - /Applications/momi.app
 
 echo "==> 编译完成！已安装到 /Applications/momi.app"

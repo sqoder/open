@@ -1,5 +1,39 @@
 # momi 更新日志 (Changelog)
 
+## [1.5.3] - 2026-10-24
+
+### 菜单栏极简化与刘海防遮挡
+- **精简状态栏文案**：移除 `· 生成中`、`· 双路并发`、`tok/s` 等长字符。空闲时显示 `--`，测速时显示 `xx.x t/s`，彻底解决刘海屏下因宽度溢出被系统裁剪的问题。
+- **持久化标识 (autosaveName)**：设置 `statusItem.autosaveName = "momi"`，支持用户随时按住 Command 拖拽排序并持久化位置，避免系统匿名项冲突。
+
+---
+
+## [1.5.2] - 2026-10-23
+
+### 修复菜单栏项消失
+- **更换 Bundle ID**：`com.glint.momi` → `com.momi.speedo`。旧 ID 被系统登记为「拒绝托管菜单栏项」，导致状态栏项被排到屏幕外、菜单栏上看不到速度。已确认新 ID 恢复正常显示。
+- **构建时整包签名**：构建脚本新增 `codesign --force --deep --sign -`，修复此前「签名未覆盖图标资源」导致的包签名不完整。
+- 用户偏好已从旧域 `com.glint.momi` 迁移到 `com.momi.speedo`。
+
+---
+
+## [1.5.1] - 2026-10-23
+
+### 菜单栏速度口径
+- 多路并发时，菜单栏速度改为显示「最快的那一路」，不再把多个 Agent 的速度累加。并发路数标签（双路并发 / N 路并发）保留。
+
+---
+
+## [1.5.0] - 2026-10-23
+
+### Codex 支持
+- **双实例监听**：同时接入 Codex App（Desktop）与 Codex CLI，读取 `~/.codex/sessions/**/rollout-*.jsonl`，并按日志内的 `originator` 区分归属。
+- **实时状态与测速**：依据 `task_started` / `task_complete` 判断运行状态；按 `token_count` 的增量输出与时间差计算速度，无速度时显示「运行中 / 生成中」。
+- **全历史用量统计**：Codex 的线程累计 token 增量计入统计，缓存 token 单列；模型随 `turn_context` / `thread_settings_applied` 自动切换。
+- **灰色模板图标**：Codex App 使用云朵终端符号，Codex CLI 追加 `>_` 终端角标，与其余 Agent 保持单色一致。
+
+---
+
 ## [1.4.6] - 2026-10-23
 
 ### 图标统一

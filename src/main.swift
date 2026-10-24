@@ -94,7 +94,32 @@ func qoderModelDisplayName(for raw: String) -> String {
     }
 }
 
-let usageAgentOrder = ["antigravity-desktop", "antigravity-cli", "qoder", "pi", "claude"]
+func codexModelDisplayName(for raw: String) -> String {
+    let clean = sanitizeModelName(raw)
+    guard !clean.isEmpty else { return "Codex" }
+    let id = clean.split(separator: "/").last.map(String.init) ?? clean
+    guard id.lowercased().hasPrefix("gpt-") else { return id }
+
+    let tail = id.dropFirst(4).split(separator: "-").map { part -> String in
+        if part.first?.isNumber == true { return String(part) }
+        return part.prefix(1).uppercased() + part.dropFirst()
+    }.joined(separator: "-")
+    return "GPT-" + tail
+}
+
+enum CodexFlavor: String {
+    case desktop
+    case cli
+
+    var agentKey: String { self == .desktop ? "codex-desktop" : "codex-cli" }
+}
+
+func codexFlavor(forOriginator raw: String?) -> CodexFlavor {
+    let value = (raw ?? "").lowercased()
+    return value.contains("desktop") || value.contains("vscode") ? .desktop : .cli
+}
+
+let usageAgentOrder = ["antigravity-desktop", "antigravity-cli", "qoder", "pi", "claude", "codex-desktop", "codex-cli"]
 
 func agentDisplayName(for key: String) -> String {
     switch key {
@@ -103,6 +128,8 @@ func agentDisplayName(for key: String) -> String {
     case "qoder": return "Qoder"
     case "pi": return "Pi"
     case "claude": return "Claude Code"
+    case "codex-desktop": return "Codex App"
+    case "codex-cli": return "Codex CLI"
     default: return key
     }
 }
@@ -114,6 +141,8 @@ func agentIconName(for key: String) -> String? {
     case "qoder": return "agent_qoder"
     case "pi": return "agent_pi"
     case "claude": return "agent_claude"
+    case "codex-desktop": return "agent_codex"
+    case "codex-cli": return "agent_codex_cli"
     default: return nil
     }
 }
@@ -127,6 +156,7 @@ enum InstanceType {
     case qoder
     case pi
     case claude
+    case codex
 }
 
 struct MonitoredInstance {
@@ -145,6 +175,9 @@ struct MonitoredInstance {
     var claudeMessageLedger: [String: Int] = [:]
     var claudeRequestStartedAt: Date?
     var antigravityStepInFlight: Bool = false
+    var codexFlavor: CodexFlavor = .cli
+    var codexTaskStartedAt: Date?
+    var codexLastTokenAt: Date?
 }
 
 // MARK: - Usage Statistics Model
@@ -233,12 +266,18 @@ struct UsageFileCheckpoint: Codable {
     var claudeInput: Int64 = 0
     var claudeOutput: Int64 = 0
     var claudeCache: Int64 = 0
+    var codexAgent: String?
+    var codexModel: String?
+    var codexInput: Int64 = 0
+    var codexOutput: Int64 = 0
+    var codexCache: Int64 = 0
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
         case size, mtime, offset, antigravityModel, antigravityLastStep
         case claudeMessageId, claudeInput, claudeOutput, claudeCache
+        case codexAgent, codexModel, codexInput, codexOutput, codexCache
     }
 
     init(from decoder: Decoder) throws {
@@ -252,6 +291,11 @@ struct UsageFileCheckpoint: Codable {
         claudeInput = try c.decodeIfPresent(Int64.self, forKey: .claudeInput) ?? 0
         claudeOutput = try c.decodeIfPresent(Int64.self, forKey: .claudeOutput) ?? 0
         claudeCache = try c.decodeIfPresent(Int64.self, forKey: .claudeCache) ?? 0
+        codexAgent = try c.decodeIfPresent(String.self, forKey: .codexAgent)
+        codexModel = try c.decodeIfPresent(String.self, forKey: .codexModel)
+        codexInput = try c.decodeIfPresent(Int64.self, forKey: .codexInput) ?? 0
+        codexOutput = try c.decodeIfPresent(Int64.self, forKey: .codexOutput) ?? 0
+        codexCache = try c.decodeIfPresent(Int64.self, forKey: .codexCache) ?? 0
     }
 }
 
@@ -429,6 +473,14 @@ final class UsageIndex {
                 agent: "claude",
                 kind: .claude,
                 matches: { $0.pathExtension == "jsonl" }
+            ),
+            SourceSpec(
+                root: home.appendingPathComponent(".codex/sessions"),
+                agent: "codex-cli",
+                kind: .codex,
+                matches: {
+                    $0.pathExtension == "jsonl" && $0.lastPathComponent.hasPrefix("rollout-")
+                }
             )
         ]
 
@@ -581,6 +633,8 @@ final class UsageIndex {
             scanPi(lines: lines, file: file, checkpoint: &checkpoint)
         case .claude:
             scanClaude(lines: lines, file: file, checkpoint: &checkpoint)
+        case .codex:
+            scanCodex(lines: lines, file: file, checkpoint: &checkpoint)
         }
 
         checkpoint.offset += UInt64(processData.count)
@@ -739,6 +793,89 @@ final class UsageIndex {
                     guard input > 0 || output > 0 || cache > 0 else { return }
                     record(agent: file.agent, model: model, day: day, input: input, output: output, cache: cache, requests: 1, estimated: false)
                 }
+            }
+        }
+    }
+
+    private func scanCodex(lines: [Substring], file: SourceFile, checkpoint: inout UsageFileCheckpoint) {
+        for line in lines {
+            if !line.contains("\"token_count\"")
+                && !line.contains("\"session_meta\"")
+                && !line.contains("\"turn_context\"")
+                && !line.contains("\"thread_settings_applied\"") { continue }
+            autoreleasepool {
+                guard let data = line.data(using: .utf8),
+                      let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                      let payload = json["payload"] as? [String: Any] else { return }
+
+                let type = (json["type"] as? String) ?? ""
+                if type == "session_meta" {
+                    checkpoint.codexAgent = codexFlavor(forOriginator: payload["originator"] as? String).agentKey
+                    checkpoint.codexModel = nil
+                    checkpoint.codexInput = 0
+                    checkpoint.codexOutput = 0
+                    checkpoint.codexCache = 0
+                    return
+                }
+
+                if type == "turn_context" {
+                    if let model = payload["model"] as? String, !model.isEmpty {
+                        checkpoint.codexModel = model
+                    }
+                    return
+                }
+
+                guard type == "event_msg" else { return }
+                let event = (payload["type"] as? String) ?? ""
+
+                if event == "thread_settings_applied" {
+                    if let settings = payload["thread_settings"] as? [String: Any],
+                       let model = settings["model"] as? String, !model.isEmpty {
+                        checkpoint.codexModel = model
+                    }
+                    return
+                }
+
+                guard event == "token_count",
+                      let info = payload["info"] as? [String: Any],
+                      let totals = info["total_token_usage"] as? [String: Any] else { return }
+
+                let input = (totals["input_tokens"] as? NSNumber)?.int64Value ?? 0
+                let output = (totals["output_tokens"] as? NSNumber)?.int64Value ?? 0
+                let cache = ((totals["cached_input_tokens"] as? NSNumber)?.int64Value ?? 0)
+                    + ((totals["cache_write_input_tokens"] as? NSNumber)?.int64Value ?? 0)
+
+                if input < checkpoint.codexInput || output < checkpoint.codexOutput || cache < checkpoint.codexCache {
+                    checkpoint.codexInput = input
+                    checkpoint.codexOutput = output
+                    checkpoint.codexCache = cache
+                    return
+                }
+
+                let deltaInput = input - checkpoint.codexInput
+                let deltaOutput = output - checkpoint.codexOutput
+                let deltaCache = cache - checkpoint.codexCache
+                checkpoint.codexInput = input
+                checkpoint.codexOutput = output
+                checkpoint.codexCache = cache
+
+                // Codex's input_tokens already include cached tokens; keep the
+                // cache column separate from the fresh-input total.
+                let freshInput = max(0, deltaInput - deltaCache)
+                guard freshInput > 0 || deltaOutput > 0 || deltaCache > 0 else { return }
+
+                let day = dayKey(fromISO: json["timestamp"] as? String) ?? dayKey(for: file.mtime)
+                let model = codexModelDisplayName(for: checkpoint.codexModel ?? "Codex")
+                record(
+                    agent: checkpoint.codexAgent ?? CodexFlavor.cli.agentKey,
+                    model: model,
+                    day: day,
+                    input: freshInput,
+                    output: deltaOutput,
+                    cache: deltaCache,
+                    requests: 1,
+                    estimated: false
+                )
             }
         }
     }
@@ -1073,6 +1210,8 @@ class MomiDashboardView: NSView {
             name = "agent_pi"
         case .claude:
             name = "agent_claude"
+        case .codex:
+            name = instance.codexFlavor == .desktop ? "agent_codex" : "agent_codex_cli"
         case .antigravity:
             name = instance.shortTag == "CLI" ? "agent_antigravity_cli" : "agent_antigravity"
         }
@@ -2060,6 +2199,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     var instances: [MonitoredInstance] = []
     var isChecking: Bool = false
+    private var codexOriginatorCache: [String: String] = [:]
+    private var codexLatestCache: [CodexFlavor: (url: URL, modDate: Date)] = [:]
+    private var codexDiscoveryAt = Date.distantPast
     
     // Persistent menu and dashboard view
     let mainMenu = NSMenu()
@@ -2070,8 +2212,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem.autosaveName = "momi"
         statusItem.button?.image = nil
-        statusItem.button?.title = "-- tok/s"
+        statusItem.button?.title = "--"
         
         let home = FileManager.default.homeDirectoryForCurrentUser
         instances = [
@@ -2107,6 +2250,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 type: .claude,
                 baseDir: home.appendingPathComponent(".claude/projects"),
                 modelName: "Claude"
+            ),
+            MonitoredInstance(
+                name: "Codex App",
+                shortTag: "App",
+                type: .codex,
+                baseDir: home.appendingPathComponent(".codex/sessions"),
+                codexFlavor: .desktop
+            ),
+            MonitoredInstance(
+                name: "Codex CLI",
+                shortTag: "CLI",
+                type: .codex,
+                baseDir: home.appendingPathComponent(".codex/sessions"),
+                codexFlavor: .cli
             )
         ]
         
@@ -2186,6 +2343,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return fastFindLatestPiTranscript(in: instance.baseDir)
         case .claude:
             return fastFindLatestClaudeTranscript(in: instance.baseDir)
+        case .codex:
+            return fastFindLatestCodexTranscript(in: instance.baseDir, flavor: instance.codexFlavor)
         }
     }
     
@@ -2328,6 +2487,61 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return nil
     }
     
+    func fastFindLatestCodexTranscript(in sessionsDir: URL, flavor wanted: CodexFlavor) -> (url: URL, modDate: Date)? {
+        let now = Date()
+        if now.timeIntervalSince(codexDiscoveryAt) > 5 || codexLatestCache.isEmpty {
+            codexDiscoveryAt = now
+            codexLatestCache.removeAll()
+
+            var candidates: [(url: URL, modDate: Date)] = []
+            if let enumerator = FileManager.default.enumerator(
+                at: sessionsDir,
+                includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
+                options: [.skipsHiddenFiles],
+                errorHandler: nil
+            ) {
+                for case let url as URL in enumerator {
+                    guard url.pathExtension == "jsonl",
+                          url.lastPathComponent.hasPrefix("rollout-"),
+                          let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey]),
+                          values.isRegularFile == true,
+                          let modDate = values.contentModificationDate else { continue }
+                    candidates.append((url, modDate))
+                }
+            }
+
+            candidates.sort { $0.modDate > $1.modDate }
+            for candidate in candidates {
+                let originator = codexSessionOriginator(for: candidate.url)
+                let flavor = codexFlavor(forOriginator: originator)
+                if codexLatestCache[flavor] == nil {
+                    codexLatestCache[flavor] = (candidate.url, candidate.modDate)
+                }
+                if codexLatestCache.count == 2 { break }
+            }
+        }
+
+        guard let latest = codexLatestCache[wanted] else { return nil }
+        return (latest.url, latest.modDate)
+    }
+
+    private func codexSessionOriginator(for url: URL) -> String? {
+        if let cached = codexOriginatorCache[url.path] { return cached.isEmpty ? nil : cached }
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        let data = (try? handle.read(upToCount: 65536)) ?? Data()
+        let text = String(decoding: data, as: UTF8.self)
+
+        var originator: String?
+        if let regex = try? NSRegularExpression(pattern: "\"originator\"\\s*:\\s*\"([^\"]+)\""),
+           let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+           let range = Range(match.range(at: 1), in: text) {
+            originator = String(text[range])
+        }
+        codexOriginatorCache[url.path] = originator ?? ""
+        return originator
+    }
+
     func readTail(url: URL, maxBytes: UInt64 = 65536) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
@@ -2348,6 +2562,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             updatePiSessionTokens(url: url, instance: &instance)
         case .claude:
             updateClaudeSessionTokens(url: url, instance: &instance)
+        case .codex:
+            updateCodexSessionTokens(url: url, instance: &instance)
         }
     }
     
@@ -2627,13 +2843,117 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     
+    /// Incrementally scans new bytes from a Codex rollout JSONL.
+    func updateCodexSessionTokens(url: URL, instance: inout MonitoredInstance) {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return }
+        defer { try? handle.close() }
+        let fileSize = handle.seekToEndOfFile()
+
+        if fileSize < instance.lastTrackedFileSize {
+            instance.totalSessionTokens = 0
+            instance.lastTrackedFileSize = 0
+            instance.isGenerating = false
+            instance.currentSpeed = 0
+            instance.codexTaskStartedAt = nil
+            instance.codexLastTokenAt = nil
+        }
+
+        handle.seek(toFileOffset: instance.lastTrackedFileSize)
+        let newData = handle.readDataToEndOfFile()
+        guard !newData.isEmpty else { return }
+
+        let processData: Data
+        if let lastNewline = newData.lastIndex(of: 0x0A) {
+            processData = newData.subdata(in: 0..<lastNewline + 1)
+            instance.lastTrackedFileSize += UInt64(processData.count)
+        } else {
+            return
+        }
+
+        guard let str = String(data: processData, encoding: .utf8) else { return }
+        let lines = str.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+
+        let fractionalFormatter = ISO8601DateFormatter()
+        fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plainFormatter = ISO8601DateFormatter()
+        plainFormatter.formatOptions = [.withInternetDateTime]
+
+        func parseDate(_ value: Any?) -> Date? {
+            guard let s = value as? String else { return nil }
+            return fractionalFormatter.date(from: s) ?? plainFormatter.date(from: s)
+        }
+
+        for line in lines {
+            guard let d = line.data(using: .utf8),
+                  let json = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any],
+                  let payload = json["payload"] as? [String: Any] else { continue }
+
+            let type = (json["type"] as? String) ?? ""
+            if type == "turn_context" {
+                if let model = payload["model"] as? String, !model.isEmpty {
+                    instance.modelName = codexModelDisplayName(for: model)
+                }
+                continue
+            }
+
+            guard type == "event_msg" else { continue }
+            let event = (payload["type"] as? String) ?? ""
+
+            if event == "thread_settings_applied" {
+                if let settings = payload["thread_settings"] as? [String: Any],
+                   let model = settings["model"] as? String, !model.isEmpty {
+                    instance.modelName = codexModelDisplayName(for: model)
+                }
+                continue
+            }
+
+            if event == "task_started" {
+                instance.isGenerating = true
+                instance.codexTaskStartedAt = parseDate(json["timestamp"])
+                instance.codexLastTokenAt = nil
+                continue
+            }
+
+            if event == "task_complete" || event == "turn_aborted" {
+                instance.isGenerating = false
+                instance.codexTaskStartedAt = nil
+                continue
+            }
+
+            guard event == "token_count",
+                  let info = payload["info"] as? [String: Any],
+                  let totals = info["total_token_usage"] as? [String: Any] else { continue }
+
+            let output = Int((totals["output_tokens"] as? NSNumber)?.int64Value ?? 0)
+            let previousTotal = instance.totalSessionTokens
+            if output >= previousTotal {
+                instance.totalSessionTokens = output
+            } else {
+                instance.totalSessionTokens = output
+                instance.codexLastTokenAt = nil
+            }
+
+            if let ended = parseDate(json["timestamp"]) {
+                let delta = max(0, output - previousTotal)
+                let started = instance.codexLastTokenAt ?? instance.codexTaskStartedAt
+                if delta > 0, let started = started {
+                    let duration = ended.timeIntervalSince(started)
+                    if duration >= 0.3 {
+                        instance.currentSpeed = Double(delta) / duration
+                    }
+                }
+                instance.codexLastTokenAt = ended
+            }
+        }
+    }
+
     func parseLatestSpeed(url: URL, fileModDate: Date, type: InstanceType) -> (speed: Double, inFlight: Bool?) {
         switch type {
         case .antigravity:
             return parseAntigravityTail(url: url, fileModDate: fileModDate)
         case .qoder:
             return (parseQoderLatestSpeed(url: url, fileModDate: fileModDate), nil)
-        case .pi, .claude:
+        case .pi, .claude, .codex:
             return (0.0, nil) // speed is computed while incrementally scanning events
         }
     }
@@ -2778,10 +3098,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         updatedInstances[i].antigravityStepInFlight = false
                         updatedInstances[i].claudeMessageLedger.removeAll()
                         updatedInstances[i].claudeRequestStartedAt = nil
+                        updatedInstances[i].codexTaskStartedAt = nil
+                        updatedInstances[i].codexLastTokenAt = nil
                         if updatedInstances[i].type == .pi {
                             updatedInstances[i].modelName = "Pi"
                         } else if updatedInstances[i].type == .claude {
                             updatedInstances[i].modelName = "Claude"
+                        } else if updatedInstances[i].type == .codex {
+                            updatedInstances[i].modelName = "Codex"
                         }
                         hasChanges = true
                     }
@@ -2829,7 +3153,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     
                     // Same safety net for runs stopped mid-tool; otherwise a
                     // trailing tool_use event would keep the row "运行中".
-                    if (updatedInstances[i].type == .qoder || updatedInstances[i].type == .pi),
+                    if (updatedInstances[i].type == .qoder || updatedInstances[i].type == .pi || updatedInstances[i].type == .codex),
                        updatedInstances[i].isGenerating,
                        now.timeIntervalSince(latest.modDate) > 900 {
                         updatedInstances[i].isGenerating = false
@@ -2854,19 +3178,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let isConcurrent = generating.count > 1
         
         if isConcurrent {
-            let displaySpeed = generating.reduce(0.0) { $0 + $1.currentSpeed }
-            let countTag = generating.count == 2 ? "双路并发" : "\(generating.count)路并发"
+            let displaySpeed = generating.map(\.currentSpeed).max() ?? 0.0
             statusItem.button?.title = displaySpeed > 0
-                ? String(format: "%.1f t/s · %@", displaySpeed, countTag)
-                : "生成中 · \(countTag)"
+                ? String(format: "%.1f t/s", displaySpeed)
+                : "生成中"
         } else if let gen = generating.first {
             statusItem.button?.title = gen.currentSpeed > 0
-                ? String(format: "%.1f t/s · 生成中", gen.currentSpeed)
+                ? String(format: "%.1f t/s", gen.currentSpeed)
                 : "生成中"
         } else {
             let mostRecent = visibleInstances.max(by: { $0.latestModDate < $1.latestModDate })
             let speed = mostRecent?.currentSpeed ?? 0.0
-            statusItem.button?.title = speed > 0 ? String(format: "%.1f tok/s", speed) : "-- tok/s"
+            statusItem.button?.title = speed > 0 ? String(format: "%.1f t/s", speed) : "--"
         }
         
         let sortedInstances = visibleInstances
@@ -2910,6 +3233,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             instances[i].antigravityStepInFlight = false
             instances[i].claudeMessageLedger.removeAll()
             instances[i].claudeRequestStartedAt = nil
+            instances[i].codexTaskStartedAt = nil
+            instances[i].codexLastTokenAt = nil
         }
         triggerBackgroundUpdate()
         UsageIndex.shared.scanNow()
