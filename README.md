@@ -54,6 +54,7 @@ Pre-built DMG installer for macOS 14.0 (Sonoma) and newer:
 | `⌘ T` / `⌘ W` | **New / Close Tab** | Opens a new tab or closes the current pane/tab |
 | `⌃ \`` | **Quick Terminal** | Toggles global dropdown scratchpad |
 | `⌘ F` | **Find** | Search scrollback buffer with match highlighting |
+| `⌘ Click` | **Open Link** | Opens files and documents with the default macOS app |
 | `⇧ ⌘ ,` | **Reload Config** | Live hot-reloads configuration without restarting |
 
 ---

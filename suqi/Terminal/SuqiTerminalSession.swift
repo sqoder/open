@@ -7,9 +7,17 @@
 
 import Foundation
 import SwiftUI
+import AppKit
 import Combine
 import GhosttyTerminal
 import GhosttyTheme
+
+extension TerminalViewState: TerminalSurfaceOpenURLDelegate {
+    public func terminalDidRequestOpenURL(_ url: String, kind: TerminalOpenURLKind) {
+        guard let target = TerminalLinkResolver.resolve(url, workingDirectory: workingDirectory) else { return }
+        NSWorkspace.shared.open(target)
+    }
+}
 
 @MainActor
 public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatable {
