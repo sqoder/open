@@ -33,20 +33,10 @@ fi
 rm -rf /Applications/suqi.app
 cp -R "$BUILT_APP" /Applications/suqi.app
 
-echo "==> [4/4] Applying stable code signature..."
-# Detect available Apple Development signing identity
-SIGNING_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep "Apple Development" | head -n 1 | awk -F '"' '{print $2}')
-
-if [ -n "$SIGNING_IDENTITY" ]; then
-    echo "    Found Developer Identity: $SIGNING_IDENTITY"
-    codesign -s "$SIGNING_IDENTITY" --force --deep /Applications/suqi.app
-else
-    echo "    No Apple Development certificate found, applying ad-hoc signature with stable identifier..."
-    codesign -s - --force --deep /Applications/suqi.app
-fi
-
-echo ""
-echo "✅ Verification:"
+# Do NOT re-sign here: xcodebuild already signed with the stable Apple Development
+# certificate, and re-signing changes the CDHash, which silently invalidates every
+# TCC permission (Accessibility, Screen Capture, Full Disk Access) on each install.
+echo "==> [4/4] Verifying signature..."
 codesign -vvv /Applications/suqi.app 2>&1
 codesign -d -r- /Applications/suqi.app 2>&1
 

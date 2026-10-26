@@ -13,7 +13,9 @@ settings:
   base:
     SWIFT_VERSION: "5.10"
     CODE_SIGN_STYLE: Manual
-    CODE_SIGN_IDENTITY: "-"
+    # Stable certificate (not ad-hoc) so TCC permissions survive rebuilds
+    CODE_SIGN_IDENTITY: "Apple Development"
+    DEVELOPMENT_TEAM: FLRWBQKUYW
     MACOSX_DEPLOYMENT_TARGET: "14.0"
 
 targets:
