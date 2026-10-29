@@ -1,5 +1,5 @@
 import XCTest
-@testable import suqi
+@testable import siqi
 
 final class TerminalLinkResolverTests: XCTestCase {
     func testResolvesFilePathsAndURLs() throws {
@@ -17,7 +17,7 @@ final class TerminalLinkResolverTests: XCTestCase {
             ("~/missing-\(UUID().uuidString).md", nil, nil),
             ("docs/readme.md", root.path, root.appendingPathComponent("docs/readme.md")),
             ("https://example.com/docs", nil, URL(string: "https://example.com/docs")),
-            ("/definitely/missing/suqi-file.md", nil, nil),
+            ("/definitely/missing/siqi-file.md", nil, nil),
         ]
 
         for (raw, cwd, expected) in cases {

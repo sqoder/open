@@ -1,5 +1,5 @@
 import XCTest
-@testable import suqi
+@testable import siqi
 
 @MainActor
 final class ShellEscapeTests: XCTestCase {
@@ -32,15 +32,15 @@ final class ShellEscapeTests: XCTestCase {
 
 final class KeybindingParserTests: XCTestCase {
     func testParsesGhosttyStyleBinding() {
-        let binding = SuqiUserConfig.parseKeybinding("cmd+shift+e=new_tab")
+        let binding = SiqiUserConfig.parseKeybinding("cmd+shift+e=new_tab")
         XCTAssertEqual(binding?.key, "e")
         XCTAssertEqual(binding?.modifiers, ["cmd", "shift"])
         XCTAssertEqual(binding?.action, "new_tab")
     }
 
     func testRejectsMalformedBinding() {
-        XCTAssertNil(SuqiUserConfig.parseKeybinding("noaction"))
-        XCTAssertNil(SuqiUserConfig.parseKeybinding("=new_tab"))
+        XCTAssertNil(SiqiUserConfig.parseKeybinding("noaction"))
+        XCTAssertNil(SiqiUserConfig.parseKeybinding("=new_tab"))
     }
 }
 

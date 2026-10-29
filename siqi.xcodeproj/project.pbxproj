@@ -1,0 +1,618 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0846813F969D09CCFD7081E8 /* TerminalLinkResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07AB855594C8E5C5741638D2 /* TerminalLinkResolverTests.swift */; };
+		091B5910FDEF7ACD323B2687 /* AppTerminalView+IME.swift in Sources */ = {isa = PBXBuildFile; fileRef = C61498DC8B7FADC45C6AD995 /* AppTerminalView+IME.swift */; };
+		0AC08025A0AB9C4F3DF80445 /* TerminalActionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A760D80211EBE9C58F128436 /* TerminalActionBridge.swift */; };
+		1533A6BDD85BE914ABA2A2CC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 92B446DBBDF949A0EFB14E97 /* Assets.xcassets */; };
+		1A73F8A795D61AB6580B3CDB /* SiqiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2814BECA01801D6205F032B0 /* SiqiApp.swift */; };
+		3A124CB8A8F9E0899C568D85 /* AppTerminalView+Paste.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC025B21D48AFB43026ED6F7 /* AppTerminalView+Paste.swift */; };
+		43606FCCDC54BFEB1C286BED /* WindowDragArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CF097EA8281F93261E5DC82 /* WindowDragArea.swift */; };
+		5318C5584E2A9279CA7C5537 /* TerminalWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AED0964FA1E460D7C0A31DF0 /* TerminalWindowController.swift */; };
+		5C68D3E23828478653C3A2BA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D0672D331F3152DD01CC683 /* ContentView.swift */; };
+		60C043DAA4AB28A94027E74C /* TerminalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65EA0D71D7B63439429484D5 /* TerminalNotificationService.swift */; };
+		60D9F09E42D66ADAA385BB9B /* GhosttyTheme in Frameworks */ = {isa = PBXBuildFile; productRef = B2EF0779032FE3B23E7B13C9 /* GhosttyTheme */; };
+		61F3F9698A19A6CAC0CC34D9 /* SiqiTerminalSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE88E68079B4A20FAF478291 /* SiqiTerminalSession.swift */; };
+		6D402EB0E60A53E73621EFA2 /* AppTerminalView+Drag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24C8FBB1FC5430234A225DE6 /* AppTerminalView+Drag.swift */; };
+		7EF01974573060B2E78EAC25 /* SiqiWindowModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56128D9EC0B005E4C3E10C13 /* SiqiWindowModel.swift */; };
+		84CBBF72A292EF811F7AC1DE /* QuickTerminalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8235FDD512D4DEE48287BC6F /* QuickTerminalController.swift */; };
+		95FCB4ECDA8F9095D0B3F36B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C5985EB46C42CAD44579BD8 /* AppDelegate.swift */; };
+		9C35CD159C9936A8E93A84AB /* OptimizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D26DF1A6D2ECBB99821577D /* OptimizationTests.swift */; };
+		A83A2CC06FF8656BCD108AF4 /* AppTerminalView+ContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E65A79C35C15A8FDDD589D7 /* AppTerminalView+ContextMenu.swift */; };
+		AF4335DF8CDCF5C8CF7508B1 /* SiqiTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D08452234FBA59808C144806 /* SiqiTabBar.swift */; };
+		B3F92C44B80E10371FAAB113 /* GhosttyTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = 7B508151D6A5F88F6AD8B9FE /* GhosttyTerminal */; };
+		D76A45FCB3F4DFF421EAF005 /* TerminalLinkResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 612B9ADBC35342BE52698C94 /* TerminalLinkResolver.swift */; };
+		DA29E8AFEDFAC73532BF948F /* SiqiConfigLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043C45CB0B62F1676460C835 /* SiqiConfigLoader.swift */; };
+		DC1C5CADB471F468E964D7E3 /* SiqiTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 767D9227C90D0F1FC8965831 /* SiqiTheme.swift */; };
+		DFC8D744EE400259A5F16C15 /* SiqiWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCDCC811AB9EE0E093D52492 /* SiqiWindowManager.swift */; };
+		E1EC3AA06D3080F77DFD3C75 /* SiqiTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0FD594DE4EB4075BD4219E3 /* SiqiTerminalView.swift */; };
+		E2B05C93357E1269732C94EF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 602ABE96E2CF56FD109E7C60 /* SettingsView.swift */; };
+		EE0A927136D76F53062DDBDC /* PinButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12064D7D1E42BB6677EF97C /* PinButtonView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		3614C2239E00CB9142C91704 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B726E426C49DC018B37095FE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65C1B6A56CF0B988E6447E58;
+			remoteInfo = siqi;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		043C45CB0B62F1676460C835 /* SiqiConfigLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiqiConfigLoader.swift; sourceTree = "<group>"; };
+		07AB855594C8E5C5741638D2 /* TerminalLinkResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalLinkResolverTests.swift; sourceTree = "<group>"; };
+		0D26DF1A6D2ECBB99821577D /* OptimizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptimizationTests.swift; sourceTree = "<group>"; };
+		24C8FBB1FC5430234A225DE6 /* AppTerminalView+Drag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppTerminalView+Drag.swift"; sourceTree = "<group>"; };
+		2814BECA01801D6205F032B0 /* SiqiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiqiApp.swift; sourceTree = "<group>"; };
+		2D0672D331F3152DD01CC683 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		499EB08334D0A2BB5653F1EC /* siqiTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = siqiTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		56128D9EC0B005E4C3E10C13 /* SiqiWindowModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiqiWindowModel.swift; sourceTree = "<group>"; };
+		5E65A79C35C15A8FDDD589D7 /* AppTerminalView+ContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppTerminalView+ContextMenu.swift"; sourceTree = "<group>"; };
+		602ABE96E2CF56FD109E7C60 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		612B9ADBC35342BE52698C94 /* TerminalLinkResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalLinkResolver.swift; sourceTree = "<group>"; };
+		65EA0D71D7B63439429484D5 /* TerminalNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalNotificationService.swift; sourceTree = "<group>"; };
+		694E2557254862E5D0BB6CE7 /* siqi.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = siqi.entitlements; sourceTree = "<group>"; };
+		767D9227C90D0F1FC8965831 /* SiqiTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiqiTheme.swift; sourceTree = "<group>"; };
+		8235FDD512D4DEE48287BC6F /* QuickTerminalController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickTerminalController.swift; sourceTree = "<group>"; };
+		8C5985EB46C42CAD44579BD8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		8CF097EA8281F93261E5DC82 /* WindowDragArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragArea.swift; sourceTree = "<group>"; };
+		92B446DBBDF949A0EFB14E97 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A0FD594DE4EB4075BD4219E3 /* SiqiTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiqiTerminalView.swift; sourceTree = "<group>"; };
+		A39F2183F1F5CC6DE82CC6FD /* siqi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = siqi.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A760D80211EBE9C58F128436 /* TerminalActionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalActionBridge.swift; sourceTree = "<group>"; };
+		AC025B21D48AFB43026ED6F7 /* AppTerminalView+Paste.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppTerminalView+Paste.swift"; sourceTree = "<group>"; };
+		AE88E68079B4A20FAF478291 /* SiqiTerminalSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiqiTerminalSession.swift; sourceTree = "<group>"; };
+		AED0964FA1E460D7C0A31DF0 /* TerminalWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalWindowController.swift; sourceTree = "<group>"; };
+		C12064D7D1E42BB6677EF97C /* PinButtonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinButtonView.swift; sourceTree = "<group>"; };
+		C61498DC8B7FADC45C6AD995 /* AppTerminalView+IME.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppTerminalView+IME.swift"; sourceTree = "<group>"; };
+		D08452234FBA59808C144806 /* SiqiTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiqiTabBar.swift; sourceTree = "<group>"; };
+		ED39F148125431C236BE393B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		FCDCC811AB9EE0E093D52492 /* SiqiWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiqiWindowManager.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BEE304E11860CEA74B111480 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B3F92C44B80E10371FAAB113 /* GhosttyTerminal in Frameworks */,
+				60D9F09E42D66ADAA385BB9B /* GhosttyTheme in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		05776BB5135501C097079979 /* Terminal */ = {
+			isa = PBXGroup;
+			children = (
+				5E65A79C35C15A8FDDD589D7 /* AppTerminalView+ContextMenu.swift */,
+				24C8FBB1FC5430234A225DE6 /* AppTerminalView+Drag.swift */,
+				C61498DC8B7FADC45C6AD995 /* AppTerminalView+IME.swift */,
+				AC025B21D48AFB43026ED6F7 /* AppTerminalView+Paste.swift */,
+				AE88E68079B4A20FAF478291 /* SiqiTerminalSession.swift */,
+				A0FD594DE4EB4075BD4219E3 /* SiqiTerminalView.swift */,
+				56128D9EC0B005E4C3E10C13 /* SiqiWindowModel.swift */,
+				A760D80211EBE9C58F128436 /* TerminalActionBridge.swift */,
+				612B9ADBC35342BE52698C94 /* TerminalLinkResolver.swift */,
+			);
+			path = Terminal;
+			sourceTree = "<group>";
+		};
+		06C0ED5C26AB3D76D99C69A5 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				2D0672D331F3152DD01CC683 /* ContentView.swift */,
+				C12064D7D1E42BB6677EF97C /* PinButtonView.swift */,
+				602ABE96E2CF56FD109E7C60 /* SettingsView.swift */,
+				D08452234FBA59808C144806 /* SiqiTabBar.swift */,
+				8CF097EA8281F93261E5DC82 /* WindowDragArea.swift */,
+				47E4FA40BF67B255806E8518 /* Theme */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		47E4FA40BF67B255806E8518 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				767D9227C90D0F1FC8965831 /* SiqiTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		5D82A163956FB1DD861CE91C = {
+			isa = PBXGroup;
+			children = (
+				8D4CC89D2B22C800DB2616A7 /* siqi */,
+				76F565A52C89F3D5CD8CCBE7 /* tests */,
+				FD50A88CD3047B70BEBE1D74 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		6FB37A492871BE0EA3AD8C88 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				92B446DBBDF949A0EFB14E97 /* Assets.xcassets */,
+				ED39F148125431C236BE393B /* Info.plist */,
+				694E2557254862E5D0BB6CE7 /* siqi.entitlements */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		76F565A52C89F3D5CD8CCBE7 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				0D26DF1A6D2ECBB99821577D /* OptimizationTests.swift */,
+				07AB855594C8E5C5741638D2 /* TerminalLinkResolverTests.swift */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
+		8D4CC89D2B22C800DB2616A7 /* siqi */ = {
+			isa = PBXGroup;
+			children = (
+				C6082041123F0680D1741263 /* App */,
+				CC30B2DEFEC6B9278E0DE2AD /* Core */,
+				6FB37A492871BE0EA3AD8C88 /* Resources */,
+				05776BB5135501C097079979 /* Terminal */,
+				06C0ED5C26AB3D76D99C69A5 /* UI */,
+			);
+			path = siqi;
+			sourceTree = "<group>";
+		};
+		C6082041123F0680D1741263 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				8C5985EB46C42CAD44579BD8 /* AppDelegate.swift */,
+				8235FDD512D4DEE48287BC6F /* QuickTerminalController.swift */,
+				2814BECA01801D6205F032B0 /* SiqiApp.swift */,
+				65EA0D71D7B63439429484D5 /* TerminalNotificationService.swift */,
+				AED0964FA1E460D7C0A31DF0 /* TerminalWindowController.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		CC30B2DEFEC6B9278E0DE2AD /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				043C45CB0B62F1676460C835 /* SiqiConfigLoader.swift */,
+				FCDCC811AB9EE0E093D52492 /* SiqiWindowManager.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		FD50A88CD3047B70BEBE1D74 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A39F2183F1F5CC6DE82CC6FD /* siqi.app */,
+				499EB08334D0A2BB5653F1EC /* siqiTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		65C1B6A56CF0B988E6447E58 /* siqi */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D1F1A640EA90125F1DF64605 /* Build configuration list for PBXNativeTarget "siqi" */;
+			buildPhases = (
+				4F18F7550BB81094FD2765FD /* Sources */,
+				EE771018503CB7874B7EF416 /* Resources */,
+				BEE304E11860CEA74B111480 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = siqi;
+			packageProductDependencies = (
+				7B508151D6A5F88F6AD8B9FE /* GhosttyTerminal */,
+				B2EF0779032FE3B23E7B13C9 /* GhosttyTheme */,
+			);
+			productName = siqi;
+			productReference = A39F2183F1F5CC6DE82CC6FD /* siqi.app */;
+			productType = "com.apple.product-type.application";
+		};
+		EEAEF326641DC1523E5E3833 /* siqiTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 89269D195F928308EDB71110 /* Build configuration list for PBXNativeTarget "siqiTests" */;
+			buildPhases = (
+				8D960C3740B249446F034B35 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F9111B03FD70C6AAE213A43A /* PBXTargetDependency */,
+			);
+			name = siqiTests;
+			packageProductDependencies = (
+			);
+			productName = siqiTests;
+			productReference = 499EB08334D0A2BB5653F1EC /* siqiTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B726E426C49DC018B37095FE /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					65C1B6A56CF0B988E6447E58 = {
+						DevelopmentTeam = FLRWBQKUYW;
+						ProvisioningStyle = Manual;
+					};
+					EEAEF326641DC1523E5E3833 = {
+						DevelopmentTeam = FLRWBQKUYW;
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = 21A8459F452E7B4BA6A2DDF2 /* Build configuration list for PBXProject "siqi" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 5D82A163956FB1DD861CE91C;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				67554D0A4FF7C0F6239C719E /* XCRemoteSwiftPackageReference "libghostty-spm" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FD50A88CD3047B70BEBE1D74 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				65C1B6A56CF0B988E6447E58 /* siqi */,
+				EEAEF326641DC1523E5E3833 /* siqiTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		EE771018503CB7874B7EF416 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1533A6BDD85BE914ABA2A2CC /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4F18F7550BB81094FD2765FD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95FCB4ECDA8F9095D0B3F36B /* AppDelegate.swift in Sources */,
+				A83A2CC06FF8656BCD108AF4 /* AppTerminalView+ContextMenu.swift in Sources */,
+				6D402EB0E60A53E73621EFA2 /* AppTerminalView+Drag.swift in Sources */,
+				091B5910FDEF7ACD323B2687 /* AppTerminalView+IME.swift in Sources */,
+				3A124CB8A8F9E0899C568D85 /* AppTerminalView+Paste.swift in Sources */,
+				5C68D3E23828478653C3A2BA /* ContentView.swift in Sources */,
+				EE0A927136D76F53062DDBDC /* PinButtonView.swift in Sources */,
+				84CBBF72A292EF811F7AC1DE /* QuickTerminalController.swift in Sources */,
+				E2B05C93357E1269732C94EF /* SettingsView.swift in Sources */,
+				1A73F8A795D61AB6580B3CDB /* SiqiApp.swift in Sources */,
+				DA29E8AFEDFAC73532BF948F /* SiqiConfigLoader.swift in Sources */,
+				AF4335DF8CDCF5C8CF7508B1 /* SiqiTabBar.swift in Sources */,
+				61F3F9698A19A6CAC0CC34D9 /* SiqiTerminalSession.swift in Sources */,
+				E1EC3AA06D3080F77DFD3C75 /* SiqiTerminalView.swift in Sources */,
+				DC1C5CADB471F468E964D7E3 /* SiqiTheme.swift in Sources */,
+				DFC8D744EE400259A5F16C15 /* SiqiWindowManager.swift in Sources */,
+				7EF01974573060B2E78EAC25 /* SiqiWindowModel.swift in Sources */,
+				0AC08025A0AB9C4F3DF80445 /* TerminalActionBridge.swift in Sources */,
+				D76A45FCB3F4DFF421EAF005 /* TerminalLinkResolver.swift in Sources */,
+				60C043DAA4AB28A94027E74C /* TerminalNotificationService.swift in Sources */,
+				5318C5584E2A9279CA7C5537 /* TerminalWindowController.swift in Sources */,
+				43606FCCDC54BFEB1C286BED /* WindowDragArea.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8D960C3740B249446F034B35 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9C35CD159C9936A8E93A84AB /* OptimizationTests.swift in Sources */,
+				0846813F969D09CCFD7081E8 /* TerminalLinkResolverTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F9111B03FD70C6AAE213A43A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65C1B6A56CF0B988E6447E58 /* siqi */;
+			targetProxy = 3614C2239E00CB9142C91704 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		140E59A7FD746893EED1F10E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = siqi/Resources/siqi.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 27;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_POSTPROCESSING = YES;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = siqi/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.0.27;
+				PRODUCT_BUNDLE_IDENTIFIER = com.siqi.terminal;
+				PRODUCT_NAME = siqi;
+				SDKROOT = macosx;
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = "non-global";
+			};
+			name = Release;
+		};
+		3B1273CEFE093D6C87DA35C0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.siqi.terminal.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/siqi.app/Contents/MacOS/siqi";
+			};
+			name = Debug;
+		};
+		624E5F3CB9243F71C6024602 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = FLRWBQKUYW;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+		732D08CE13E4F0215EC81257 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = siqi/Resources/siqi.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 27;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_POSTPROCESSING = YES;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = siqi/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.0.27;
+				PRODUCT_BUNDLE_IDENTIFIER = com.siqi.terminal;
+				PRODUCT_NAME = siqi;
+				SDKROOT = macosx;
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = "non-global";
+			};
+			name = Debug;
+		};
+		AD7C8BBC5647D82134B950B7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = FLRWBQKUYW;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		C111B1B727C70B288EEB3C59 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.siqi.terminal.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/siqi.app/Contents/MacOS/siqi";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		21A8459F452E7B4BA6A2DDF2 /* Build configuration list for PBXProject "siqi" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				624E5F3CB9243F71C6024602 /* Debug */,
+				AD7C8BBC5647D82134B950B7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		89269D195F928308EDB71110 /* Build configuration list for PBXNativeTarget "siqiTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3B1273CEFE093D6C87DA35C0 /* Debug */,
+				C111B1B727C70B288EEB3C59 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D1F1A640EA90125F1DF64605 /* Build configuration list for PBXNativeTarget "siqi" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				732D08CE13E4F0215EC81257 /* Debug */,
+				140E59A7FD746893EED1F10E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		67554D0A4FF7C0F6239C719E /* XCRemoteSwiftPackageReference "libghostty-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/egoist-labs/libghostty-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.7;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7B508151D6A5F88F6AD8B9FE /* GhosttyTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 67554D0A4FF7C0F6239C719E /* XCRemoteSwiftPackageReference "libghostty-spm" */;
+			productName = GhosttyTerminal;
+		};
+		B2EF0779032FE3B23E7B13C9 /* GhosttyTheme */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 67554D0A4FF7C0F6239C719E /* XCRemoteSwiftPackageReference "libghostty-spm" */;
+			productName = GhosttyTheme;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = B726E426C49DC018B37095FE /* Project object */;
+}

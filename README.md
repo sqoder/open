@@ -1,7 +1,7 @@
-# Suqi · GPU-Accelerated macOS Terminal
+# Siqi · GPU-Accelerated macOS Terminal
 
 <p align="center">
-  <img src="suqi/Resources/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="128" height="128" alt="Suqi Icon" />
+  <img src="siqi/Resources/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="128" height="128" alt="Siqi Icon" />
 </p>
 
 <p align="center">
@@ -25,7 +25,7 @@ Pre-built DMG installer for macOS 14.0 (Sonoma) and newer:
 
 | Platform | Version | System | Package |
 |---|---|---|---|
-| **macOS** | `v0.0.27` | macOS 14.0+ | [**Download Suqi.dmg**](./Suqi.dmg) |
+| **macOS** | `v0.0.27` | macOS 14.0+ | [**Download Siqi.dmg**](./Siqi.dmg) |
 
 ---
 
@@ -37,7 +37,7 @@ Pre-built DMG installer for macOS 14.0 (Sonoma) and newer:
 - **Floating Pin & Clean Chrome**: Integrated pin-on-top toggle and distraction-free, borderless window frame.
 - **Multi-Tab & Split Panes**: Vertical (`⌘D`), horizontal (`⇧⌘D`), spatial navigation (`⌃⌘H/J/K/L`), zoom (`⇧⌘↩`), and equal distribution (`⌃⌘=`).
 - **Quick Dropdown Scratchpad (`⌃\``)**: Global hotkey toggle for instant terminal access from any screen.
-- **Declarative Config & Hot-Reload (`⇧⌘,`)**: Native support for `~/.config/suqi/config` with live hot reload.
+- **Declarative Config & Hot-Reload (`⇧⌘,`)**: Native support for `~/.config/siqi/config` with live hot reload.
 
 ---
 
@@ -61,7 +61,7 @@ Pre-built DMG installer for macOS 14.0 (Sonoma) and newer:
 
 ## ⚙️ Configuration
 
-Suqi uses a declarative configuration format. Create `~/.config/suqi/config`:
+Siqi uses a declarative configuration format. Create `~/.config/siqi/config`:
 
 ```ini
 theme = Catppuccin Mocha
@@ -91,9 +91,9 @@ copy-on-select = clipboard
 
 ```bash
 # Clone repository
-git clone https://github.com/sqoder/open.git suqi
-cd suqi
-git checkout suqi
+git clone https://github.com/sqoder/open.git siqi
+cd siqi
+git checkout siqi
 
 # Build, sign with local developer certificate, and install to /Applications
 ./scripts/install.sh
@@ -102,12 +102,12 @@ git checkout suqi
 Or manually:
 ```bash
 xcodegen generate
-xcodebuild -project suqi.xcodeproj -scheme suqi -configuration Release -destination 'platform=macOS' build
-cp -R ~/Library/Developer/Xcode/DerivedData/suqi-*/Build/Products/Release/suqi.app /Applications/
-codesign -s - --force --deep /Applications/suqi.app
+xcodebuild -project siqi.xcodeproj -scheme siqi -configuration Release -destination 'platform=macOS' build
+cp -R ~/Library/Developer/Xcode/DerivedData/siqi-*/Build/Products/Release/siqi.app /Applications/
+codesign -s - --force --deep /Applications/siqi.app
 ```
 
-> **Tip**: Like iTerm2 or Terminal.app, grant **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access → `suqi`) to execute shell commands across Desktop, Downloads, and Documents without repeated macOS permission prompts.
+> **Tip**: Like iTerm2 or Terminal.app, grant **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access → `siqi`) to execute shell commands across Desktop, Downloads, and Documents without repeated macOS permission prompts.
 ---
 
 ## 📄 License
