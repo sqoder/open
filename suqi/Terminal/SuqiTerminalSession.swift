@@ -103,6 +103,24 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
             }
             .store(in: &cancellables)
 
+        state.$bellCount
+            .dropFirst()
+            .sink { _ in
+                NSSound(named: "Glass")?.play()
+            }
+            .store(in: &cancellables)
+
+        state.$lastDesktopNotificationAt
+            .compactMap { $0 }
+            .sink { [weak self] _ in
+                guard let self else { return }
+                TerminalNotificationService.post(
+                    title: self.state.lastDesktopNotificationTitle ?? "suqi",
+                    body: self.state.lastDesktopNotificationBody ?? ""
+                )
+            }
+            .store(in: &cancellables)
+
         NotificationCenter.default.publisher(for: .suqiConfigDidChange)
             .sink { [weak self] _ in
                 self?.reloadConfiguration()

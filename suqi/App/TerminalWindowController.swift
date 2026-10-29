@@ -146,6 +146,17 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         }
     }
 
+    /// macos-titlebar-style: "native" restores the system titlebar; other styles keep suqi's own chrome
+    public static func applyTitlebarStyle(_ style: String, to window: NSWindow) {
+        if style.lowercased() == "native" {
+            window.titleVisibility = .visible
+            window.titlebarAppearsTransparent = false
+        } else {
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+        }
+    }
+
     public init(model: SuqiWindowModel) {
         self.model = model
 
@@ -367,6 +378,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
     public func updateThemeBackground() {
         guard let window = self.window else { return }
         let (userConfig, _) = SuqiUserConfig.load()
+        Self.applyTitlebarStyle(userConfig.macosTitlebarStyle, to: window)
         let isTranslucent = userConfig.backgroundOpacity < 1.0 || userConfig.backgroundBlur > 0
         let baseBg = SuqiTheme.nsBackgroundColor(for: userConfig.themeName, customBackground: userConfig.background)
         if isTranslucent {

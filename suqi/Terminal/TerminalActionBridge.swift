@@ -199,6 +199,85 @@ public enum TerminalActionBridge {
         }
     }
 
+    // MARK: - User Keybindings (Ghostty-style `keybind` config)
+
+    private static func matches(_ binding: SuqiKeybinding, event: NSEvent) -> Bool {
+        var expected: NSEvent.ModifierFlags = []
+        if binding.modifiers.contains("cmd") { expected.insert(.command) }
+        if binding.modifiers.contains("ctrl") { expected.insert(.control) }
+        if binding.modifiers.contains("alt") { expected.insert(.option) }
+        if binding.modifiers.contains("shift") { expected.insert(.shift) }
+        guard event.modifierFlags.intersection([.command, .control, .option, .shift]) == expected else {
+            return false
+        }
+        return keyMatches(binding.key, event: event)
+    }
+
+    private static func keyMatches(_ key: String, event: NSEvent) -> Bool {
+        let namedKeys: [String: [UInt16]] = [
+            "enter": [36, 76], "return": [36, 76], "escape": [53], "esc": [53],
+            "tab": [48], "backspace": [51], "delete": [117],
+            "up": [126], "down": [125], "left": [123], "right": [124],
+            "home": [115], "end": [119], "page_up": [116], "page_down": [121],
+        ]
+        if let codes = namedKeys[key] {
+            return codes.contains(event.keyCode)
+        }
+        let characters: [String: String] = [
+            "space": " ", "equal": "=", "minus": "-", "backquote": "`",
+            "comma": ",", "period": ".", "slash": "/", "semicolon": ";",
+            "quote": "'", "backslash": "\\", "bracket_left": "[", "bracket_right": "]",
+        ]
+        if let character = characters[key] {
+            return event.charactersIgnoringModifiers == character
+        }
+        return event.charactersIgnoringModifiers?.lowercased() == key
+    }
+
+    private static func perform(
+        _ action: String,
+        window: NSWindow,
+        model: SuqiWindowModel,
+        onCloseRequested: @escaping () -> Void
+    ) -> Bool {
+        switch action {
+        case "new_tab": model.createNewTab()
+        case "new_window": SuqiWindowManager.shared.createWindow(workingDirectory: model.activeSession?.fullDirectory)
+        case "close_surface", "close_tab": model.closeActiveSessionWithConfirmation(in: window)
+        case "close_window": onCloseRequested()
+        case "new_split:right": model.splitRight()
+        case "new_split:down": model.splitDown()
+        case "toggle_split_zoom": model.toggleZoom()
+        case "equalize_splits": model.equalizeSplits()
+        case "goto_split:left": model.focusPane(in: .left)
+        case "goto_split:right": model.focusPane(in: .right)
+        case "goto_split:up": model.focusPane(in: .up)
+        case "goto_split:down": model.focusPane(in: .down)
+        case "toggle_quick_terminal": QuickTerminalController.shared.toggle()
+        case "search": model.isSearching.toggle()
+        case "copy_to_clipboard": handleCopy(in: window, model: model)
+        case "paste_from_clipboard": handlePaste(in: window, model: model)
+        case "select_all": handleSelectAll(model: model)
+        case "clear_screen": model.clearActiveSession()
+        case "reload_config": SuqiWindowManager.shared.reloadAllWindows()
+        case "increase_font_size", "increase_font_size:1":
+            _ = model.activeSession?.state.performBindingAction("increase_font_size:1")
+        case "decrease_font_size", "decrease_font_size:1":
+            _ = model.activeSession?.state.performBindingAction("decrease_font_size:1")
+        case "reset_font_size":
+            _ = model.activeSession?.state.performBindingAction("reset_font_size")
+        case "next_tab": model.nextTab()
+        case "previous_tab": model.previousTab()
+        case "toggle_fullscreen": window.toggleFullScreen(nil)
+        default:
+            guard action.hasPrefix("goto_tab:"), let index = Int(action.dropFirst("goto_tab:".count)) else {
+                return false
+            }
+            model.selectTab(at: index - 1)
+        }
+        return true
+    }
+
     /// Unified key event dispatcher handling all core keyboard shortcuts
     public static func dispatchKeyEvent(
         event: NSEvent,
@@ -233,6 +312,13 @@ public enum TerminalActionBridge {
                     }
                     return nil
                 }
+            }
+        }
+
+        // User keybindings from config win over the built-in shortcuts below
+        for binding in SuqiUserConfig.load().config.keybindings where matches(binding, event: event) {
+            if perform(binding.action, window: window, model: model, onCloseRequested: onCloseRequested) {
+                return nil
             }
         }
 

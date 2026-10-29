@@ -30,6 +30,20 @@ final class ShellEscapeTests: XCTestCase {
     }
 }
 
+final class KeybindingParserTests: XCTestCase {
+    func testParsesGhosttyStyleBinding() {
+        let binding = SuqiUserConfig.parseKeybinding("cmd+shift+e=new_tab")
+        XCTAssertEqual(binding?.key, "e")
+        XCTAssertEqual(binding?.modifiers, ["cmd", "shift"])
+        XCTAssertEqual(binding?.action, "new_tab")
+    }
+
+    func testRejectsMalformedBinding() {
+        XCTAssertNil(SuqiUserConfig.parseKeybinding("noaction"))
+        XCTAssertNil(SuqiUserConfig.parseKeybinding("=new_tab"))
+    }
+}
+
 final class ChildProcessInfoTests: XCTestCase {
     func testFindsNewestNonShellChildNameAndCwd() throws {
         let process = Process()

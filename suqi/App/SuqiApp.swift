@@ -7,10 +7,12 @@
 
 import SwiftUI
 import AppKit
+import Carbon
 
 @main
 struct SuqiApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @State private var secureInputEnabled = IsSecureEventInputEnabled()
 
     var body: some Scene {
         Settings {
@@ -134,6 +136,17 @@ struct SuqiApp: App {
                     SuqiWindowManager.shared.reloadAllWindows()
                 }
                 .keyboardShortcut(",", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button(secureInputEnabled ? "Disable Secure Keyboard Entry" : "Enable Secure Keyboard Entry") {
+                    if secureInputEnabled {
+                        DisableSecureEventInput()
+                    } else {
+                        EnableSecureEventInput()
+                    }
+                    secureInputEnabled = IsSecureEventInputEnabled()
+                }
 
                 Divider()
 

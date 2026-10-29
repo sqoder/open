@@ -11,6 +11,12 @@ import AppKit
 
 public typealias GhosttyUserConfig = SuqiUserConfig
 
+public struct SuqiKeybinding: Equatable, Sendable {
+    public let key: String
+    public let modifiers: Set<String>
+    public let action: String
+}
+
 public struct SuqiUserConfig: Sendable {
     public var themeName: String = "Catppuccin Mocha"
     public var fontFamily: String = "Maple Mono NF"
@@ -39,6 +45,33 @@ public struct SuqiUserConfig: Sendable {
     public var command: String? = nil
     public var fontFeatures: [String] = []
     public var confirmCloseSurface: Bool = false
+    public var keybindings: [SuqiKeybinding] = []
+    public var quickTerminalPosition: String = "top"
+    public var quickTerminalScreen: String = "mouse"
+    public var quickTerminalAutohide: Bool = true
+    public var quickTerminalAnimationDuration: Double = 0.2
+    public var quickTerminalSize: String = "50%"
+
+    /// Parses a Ghostty-style `keybind = cmd+shift+e=new_tab` value
+    public static func parseKeybinding(_ value: String) -> SuqiKeybinding? {
+        guard let separator = value.lastIndex(of: "=") else { return nil }
+        let trigger = value[..<separator]
+        let action = value[value.index(after: separator)...].trimmingCharacters(in: .whitespaces)
+        guard !trigger.isEmpty, !action.isEmpty else { return nil }
+        var modifiers: Set<String> = []
+        var key = ""
+        for part in trigger.split(separator: "+") {
+            switch part.lowercased() {
+            case "cmd", "super", "command": modifiers.insert("cmd")
+            case "ctrl", "control": modifiers.insert("ctrl")
+            case "alt", "opt", "option": modifiers.insert("alt")
+            case "shift": modifiers.insert("shift")
+            default: key = part.lowercased()
+            }
+        }
+        guard !key.isEmpty else { return nil }
+        return SuqiKeybinding(key: key, modifiers: modifiers, action: action)
+    }
 
     // mtime+size cache: every body evaluation used to re-read and re-parse the config file
     private static var cache: (config: SuqiUserConfig, filePath: String, mtime: Date, size: UInt64)?
@@ -138,6 +171,20 @@ public struct SuqiUserConfig: Sendable {
                 }
             case "confirm-close-surface":
                 cfg.confirmCloseSurface = (val.lowercased() == "true")
+            case "keybind":
+                if let binding = Self.parseKeybinding(val) {
+                    cfg.keybindings.append(binding)
+                }
+            case "quick-terminal-position":
+                cfg.quickTerminalPosition = val.lowercased()
+            case "quick-terminal-screen":
+                cfg.quickTerminalScreen = val.lowercased()
+            case "quick-terminal-autohide":
+                cfg.quickTerminalAutohide = (val.lowercased() == "true")
+            case "quick-terminal-animation-duration":
+                if let v = Double(val) { cfg.quickTerminalAnimationDuration = max(0, v) }
+            case "quick-terminal-size":
+                cfg.quickTerminalSize = val
             default:
                 break
             }

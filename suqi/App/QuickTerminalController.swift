@@ -14,14 +14,16 @@ public final class QuickTerminalPanel: NSPanel {
 }
 
 @MainActor
-public final class QuickTerminalController: ObservableObject {
+public final class QuickTerminalController: NSObject, ObservableObject, NSWindowDelegate {
     public static let shared = QuickTerminalController()
 
     public private(set) var panel: QuickTerminalPanel?
     public private(set) var model: SuqiWindowModel?
     @Published public private(set) var isVisible: Bool = false
+    private var isHiding = false
 
-    private init() {
+    private override init() {
+        super.init()
         setupLocalShortcut()
     }
 
@@ -83,9 +85,86 @@ public final class QuickTerminalController: ObservableObject {
         }
     }
 
+    // MARK: - Config-driven geometry
+
+    private func screenForConfig(_ config: SuqiUserConfig) -> NSScreen? {
+        config.quickTerminalScreen == "main" ? NSScreen.main : currentActiveScreen
+    }
+
+    private func targetFrame(for screen: NSScreen, config: SuqiUserConfig) -> NSRect {
+        let visible = screen.visibleFrame
+        let position = config.quickTerminalPosition
+        var width = min(visible.width * 0.96, 1200)
+        var height = visible.height * 0.50
+
+        let parts = config.quickTerminalSize.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        if parts.count == 2 {
+            if parts[0].hasSuffix("%"), let w = Double(parts[0].dropLast()) {
+                width = visible.width * max(0.1, min(1.0, w / 100))
+            }
+            if parts[1].hasSuffix("%"), let h = Double(parts[1].dropLast()) {
+                height = visible.height * max(0.1, min(1.0, h / 100))
+            }
+        } else if let size = parts.first, size.contains("x") {
+            let dims = size.split(separator: "x").compactMap { Double($0) }
+            if dims.count == 2 {
+                width = dims[0]
+                height = dims[1]
+            }
+        } else if let size = parts.first, size.hasSuffix("%"), let fraction = Double(size.dropLast()) {
+            let value = max(0.1, min(1.0, fraction / 100))
+            switch position {
+            case "left", "right": width = visible.width * value
+            default: height = visible.height * value
+            }
+        }
+
+        let x: CGFloat
+        let y: CGFloat
+        switch position {
+        case "bottom":
+            x = visible.midX - width / 2
+            y = visible.minY
+        case "left":
+            x = visible.minX
+            y = visible.midY - height / 2
+        case "right":
+            x = visible.maxX - width
+            y = visible.midY - height / 2
+        case "center":
+            x = visible.midX - width / 2
+            y = visible.midY - height / 2
+        default:
+            x = visible.midX - width / 2
+            y = visible.maxY - height
+        }
+        return NSRect(x: x, y: y, width: width, height: height)
+    }
+
+    private func offscreenFrame(from target: NSRect, visible: NSRect, position: String) -> NSRect {
+        switch position {
+        case "bottom":
+            return NSRect(x: target.minX, y: visible.minY - target.height, width: target.width, height: target.height)
+        case "left":
+            return NSRect(x: visible.minX - target.width, y: target.minY, width: target.width, height: target.height)
+        case "right":
+            return NSRect(x: visible.maxX, y: target.minY, width: target.width, height: target.height)
+        default:
+            return NSRect(x: target.minX, y: visible.maxY, width: target.width, height: target.height)
+        }
+    }
+
+    public func windowDidResignKey(_ notification: Notification) {
+        let (config, _) = SuqiUserConfig.load()
+        if config.quickTerminalAutohide, isVisible, !isHiding {
+            hide()
+        }
+    }
+
     public func show() {
-        guard let screen = currentActiveScreen else { return }
-        let screenFrame = screen.visibleFrame
+        let (userConfig, _) = SuqiUserConfig.load()
+        guard let screen = screenForConfig(userConfig) else { return }
+        let targetFrame = targetFrame(for: screen, config: userConfig)
 
         if panel == nil {
             let model = SuqiWindowModel()
@@ -95,13 +174,8 @@ public final class QuickTerminalController: ObservableObject {
                 self?.hide()
             }
 
-            let width = min(screenFrame.width * 0.96, 1200)
-            let height = screenFrame.height * 0.50
-            let x = screenFrame.minX + (screenFrame.width - width) / 2
-            let y = screenFrame.maxY - height
-
             let panel = QuickTerminalPanel(
-                contentRect: NSRect(x: x, y: y, width: width, height: height),
+                contentRect: targetFrame,
                 styleMask: [.borderless, .resizable],
                 backing: .buffered,
                 defer: false
@@ -113,6 +187,7 @@ public final class QuickTerminalController: ObservableObject {
             panel.isOpaque = false
             panel.hasShadow = true
             panel.isMovableByWindowBackground = false
+            panel.delegate = self
 
             let contentView = ContentView(model: model)
             let hosting = NSHostingView(rootView: contentView)
@@ -126,13 +201,6 @@ public final class QuickTerminalController: ObservableObject {
 
         guard let panel = self.panel else { return }
 
-        let width = min(screenFrame.width * 0.96, 1200)
-        let height = screenFrame.height * 0.50
-        let x = screenFrame.minX + (screenFrame.width - width) / 2
-        let targetY = screenFrame.maxY - height
-        let targetFrame = NSRect(x: x, y: targetY, width: width, height: height)
-
-        let (userConfig, _) = SuqiUserConfig.load()
         let isTranslucent = userConfig.backgroundOpacity < 1.0 || userConfig.backgroundBlur > 0
         let baseBg = SuqiTheme.nsBackgroundColor(for: userConfig.themeName, customBackground: userConfig.background)
         if isTranslucent {
@@ -144,13 +212,22 @@ public final class QuickTerminalController: ObservableObject {
             TerminalWindowController.applyWindowBlur(window: panel, radius: 0)
         }
 
-        panel.setFrame(NSRect(x: x, y: screenFrame.maxY, width: width, height: height), display: false)
+        panel.setFrame(
+            offscreenFrame(from: targetFrame, visible: screen.visibleFrame, position: userConfig.quickTerminalPosition),
+            display: false
+        )
         panel.orderFrontRegardless()
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
+        let duration = userConfig.quickTerminalAnimationDuration
+        if duration <= 0 {
+            panel.setFrame(targetFrame, display: true)
+            isVisible = true
+            return
+        }
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.20
+            ctx.duration = duration
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().setFrame(targetFrame, display: true)
         } completionHandler: { [weak self] in
@@ -159,19 +236,31 @@ public final class QuickTerminalController: ObservableObject {
     }
 
     public func hide() {
-        guard let panel = self.panel, isVisible else { return }
+        guard let panel = self.panel, isVisible, !isHiding else { return }
         guard let screen = panel.screen ?? NSScreen.main else { return }
-        let screenFrame = screen.visibleFrame
-        let curFrame = panel.frame
-        let targetFrame = NSRect(x: curFrame.minX, y: screenFrame.maxY, width: curFrame.width, height: curFrame.height)
+        let (userConfig, _) = SuqiUserConfig.load()
+        let targetFrame = offscreenFrame(
+            from: panel.frame,
+            visible: screen.visibleFrame,
+            position: userConfig.quickTerminalPosition
+        )
 
+        isHiding = true
+        let duration = userConfig.quickTerminalAnimationDuration
+        if duration <= 0 {
+            isVisible = false
+            isHiding = false
+            panel.orderOut(nil)
+            return
+        }
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.16
+            ctx.duration = duration
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().setFrame(targetFrame, display: true)
         } completionHandler: { [weak self] in
-            panel.orderOut(nil)
             self?.isVisible = false
+            self?.isHiding = false
+            panel.orderOut(nil)
         }
     }
 }

@@ -63,4 +63,21 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func dockToggleQuickTerminal() {
         QuickTerminalController.shared.toggle()
     }
+
+    // MARK: - Services
+
+    /// Finder Services entry: open the selected folder (or the selected file's folder) in a new suqi window
+    @objc public func openInSuqi(_ pboard: NSPasteboard, userData: String, error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        let urls = pboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        guard let url = urls.first else {
+            error.pointee = "No file provided" as NSString
+            return
+        }
+        var isDirectory: ObjCBool = false
+        let path = url.path
+        let directory = FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
+            ? path
+            : url.deletingLastPathComponent().path
+        SuqiWindowManager.shared.createWindow(workingDirectory: directory)
+    }
 }
