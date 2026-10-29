@@ -113,12 +113,6 @@ public struct ContentView: View {
                                     .transition(.opacity)
                                     .zIndex(999)
                             }
-
-                            if let request = model.pendingSafePaste {
-                                SafePasteModalView(request: request, model: model)
-                                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                                    .zIndex(1000)
-                            }
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
@@ -135,7 +129,7 @@ public struct ContentView: View {
                 if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
                     _ = provider.loadObject(ofClass: URL.self) { url, _ in
                         if let path = url?.path {
-                            let escaped = path.replacingOccurrences(of: " ", with: "\\ ")
+                            let escaped = TerminalActionBridge.escapedShellPath(path)
                             DispatchQueue.main.async {
                                 model.activeSession?.send(escaped + " ")
                             }

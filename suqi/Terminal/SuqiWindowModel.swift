@@ -299,7 +299,6 @@ public final class SuqiWindowModel: ObservableObject {
     @Published public var activeTabId: UUID?
     @Published public var isSearching: Bool = false
     @Published public var isPinned: Bool = false
-    @Published public var pendingSafePaste: SafePasteRequest? = nil
 
     /// Window close callback
     public var onCloseWindowRequested: (() -> Void)?
@@ -662,27 +661,6 @@ public final class SuqiWindowModel: ObservableObject {
         objectWillChange.send()
         let tab = tabs.remove(at: sourceIndex)
         tabs.insert(tab, at: destinationIndex)
-    }
-
-    /// Confirms and pastes the safe-paste text into the active session
-    public func confirmSafePaste(asSingleLine: Bool = false) {
-        guard let req = pendingSafePaste else { return }
-        let textToSend: String
-        if asSingleLine {
-            let lines = req.text.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            textToSend = lines.joined(separator: " && ") + "\n"
-        } else {
-            textToSend = req.text
-        }
-        pendingSafePaste = nil
-        activeSession?.send(textToSend)
-        focusActiveSession()
-    }
-
-    /// Cancels the pending safe-paste operation
-    public func cancelSafePaste() {
-        pendingSafePaste = nil
-        focusActiveSession()
     }
 
     /// Detaches a tab into a new standalone window, optionally positioned at a screen point

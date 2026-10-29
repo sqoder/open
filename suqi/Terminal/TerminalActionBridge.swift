@@ -106,6 +106,11 @@ public enum TerminalActionBridge {
         return nil
     }
 
+    /// Single-quote wrapping survives spaces, quotes and parentheses in file names
+    public static func escapedShellPath(_ path: String) -> String {
+        "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
     /// Automatically writes an in-memory clipboard image to ~/.cache/suqi/pastes/ and returns the file path
     public static func savePasteboardImageToDisk(_ pb: NSPasteboard) -> String? {
         guard let imgData = getPasteboardImageData(pb) else { return nil }
@@ -138,13 +143,13 @@ public enum TerminalActionBridge {
         // 1. Explicitly requested (⌥⌘V): save in-memory screenshot to disk and paste its path, or paste file path
         if saveImageAsPath {
             if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
-                let paths = urls.map { $0.path.replacingOccurrences(of: " ", with: "\\ ") }
+                let paths = urls.map { escapedShellPath($0.path) }
                 let text = paths.joined(separator: " ") + " "
                 model.activeSession?.send(text)
                 return
             }
             if let savedPath = savePasteboardImageToDisk(pb) {
-                let escaped = savedPath.replacingOccurrences(of: " ", with: "\\ ") + " "
+                let escaped = escapedShellPath(savedPath) + " "
                 model.activeSession?.send(escaped)
                 return
             }
@@ -159,7 +164,7 @@ public enum TerminalActionBridge {
                 return
             } else if let savedPath = savePasteboardImageToDisk(pb) {
                 // In standard terminal (zsh, bash, python, vim): auto-save to disk and paste escaped path to prevent ^V garbage
-                let escaped = savedPath.replacingOccurrences(of: " ", with: "\\ ") + " "
+                let escaped = escapedShellPath(savedPath) + " "
                 model.activeSession?.send(escaped)
                 return
             }
@@ -173,14 +178,7 @@ public enum TerminalActionBridge {
             return
         }
 
-        // 4. Standard text paste from clipboard (Safe Paste Guard evaluation)
-        if let clipText = pb.string(forType: .string), !clipText.isEmpty {
-            if let request = SafePasteGuard.evaluate(text: clipText) {
-                model.pendingSafePaste = request
-                return
-            }
-        }
-
+        // 4. Standard text paste from clipboard goes straight to the terminal
         if let session = model.activeSession {
             _ = session.state.performBindingAction("paste_from_clipboard")
         }
@@ -236,20 +234,6 @@ public enum TerminalActionBridge {
                     return nil
                 }
             }
-        }
-
-        // Safe Paste modal active: intercept Return and Esc
-        if model.pendingSafePaste != nil {
-            if event.keyCode == 53 { // Esc: Cancel
-                model.cancelSafePaste()
-                return nil
-            }
-            if event.keyCode == 36 || event.charactersIgnoringModifiers == "\r" { // Return / Enter
-                let asSingleLine = flags.contains(.option)
-                model.confirmSafePaste(asSingleLine: asSingleLine)
-                return nil
-            }
-            return nil // Block terminal keystrokes while confirmation modal is visible
         }
 
         // 1. ⌥⌘V (Save clipboard image to disk and paste escaped file path)

@@ -15,8 +15,8 @@ xcodebuild -project suqi.xcodeproj -scheme suqi -configuration Release -destinat
     exit 1
 }
 
-# Locate built app
-BUILT_APP=$(find ~/Library/Developer/Xcode/DerivedData/suqi-*/Build/Products/Release -name "suqi.app" -type d 2>/dev/null | head -n 1)
+# Locate built app (newest wins: stale DerivedData dirs may also hold a build)
+BUILT_APP=$(ls -dt ~/Library/Developer/Xcode/DerivedData/suqi-*/Build/Products/Release/suqi.app 2>/dev/null | head -n 1)
 
 if [ -z "$BUILT_APP" ] || [ ! -d "$BUILT_APP" ]; then
     echo "❌ Error: Could not find built suqi.app in DerivedData!"
@@ -32,6 +32,11 @@ fi
 
 rm -rf /Applications/suqi.app
 cp -R "$BUILT_APP" /Applications/suqi.app
+
+# xcodebuild registers its DerivedData output with LaunchServices, so Spotlight
+# shows a second "suqi" next to the installed one. Drop that registration.
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister
+"$LSREGISTER" -u "$BUILT_APP" 2>/dev/null || true
 
 # Do NOT re-sign here: xcodebuild already signed with the stable Apple Development
 # certificate, and re-signing changes the CDHash, which silently invalidates every

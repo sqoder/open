@@ -48,6 +48,18 @@ targets:
         CURRENT_PROJECT_VERSION: 27
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
+  suqiTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - tests
+    dependencies:
+      - target: suqi
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.suqi.terminal.tests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   suqi:
     build:
@@ -55,3 +67,7 @@ schemes:
         suqi: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - suqiTests

@@ -1,11 +1,11 @@
-import Foundation
+import XCTest
+@testable import suqi
 
-@main
-struct TerminalLinkResolverTests {
-    static func main() {
+final class TerminalLinkResolverTests: XCTestCase {
+    func testResolvesFilePathsAndURLs() throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try! fm.createDirectory(at: root, withIntermediateDirectories: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: root) }
 
         let spacedFile = root.appendingPathComponent("notes with space.md")
@@ -23,14 +23,12 @@ struct TerminalLinkResolverTests {
         for (raw, cwd, expected) in cases {
             if raw.hasPrefix("docs/") {
                 let target = expected?.path ?? ""
-                try! fm.createDirectory(at: URL(fileURLWithPath: target).deletingLastPathComponent(), withIntermediateDirectories: true)
+                try fm.createDirectory(at: URL(fileURLWithPath: target).deletingLastPathComponent(), withIntermediateDirectories: true)
                 fm.createFile(atPath: target, contents: Data())
             }
 
             let actual = TerminalLinkResolver.resolve(raw, workingDirectory: cwd)
-            precondition(actual == expected, "\(raw): expected \(String(describing: expected)), got \(String(describing: actual))")
+            XCTAssertEqual(actual, expected, "\(raw)")
         }
-
-        print("TerminalLinkResolverTests passed")
     }
 }

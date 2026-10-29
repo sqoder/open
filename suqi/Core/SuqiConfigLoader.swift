@@ -40,6 +40,9 @@ public struct SuqiUserConfig: Sendable {
     public var fontFeatures: [String] = []
     public var confirmCloseSurface: Bool = false
 
+    // mtime+size cache: every body evaluation used to re-read and re-parse the config file
+    private static var cache: (config: SuqiUserConfig, filePath: String, mtime: Date, size: UInt64)?
+
     public static func load() -> (config: SuqiUserConfig, filePath: String?) {
         let suqiPath = NSString(string: "~/.config/suqi/config").expandingTildeInPath
         let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
@@ -54,7 +57,16 @@ public struct SuqiUserConfig: Sendable {
         }()
 
         var cfg = SuqiUserConfig()
-        guard let path = targetPath, let content = try? String(contentsOfFile: path, encoding: .utf8) else {
+        guard let path = targetPath,
+              let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+              let mtime = attrs[.modificationDate] as? Date,
+              let size = attrs[.size] as? UInt64 else {
+            return (cfg, nil)
+        }
+        if let cache, cache.filePath == path, cache.mtime == mtime, cache.size == size {
+            return (cache.config, path)
+        }
+        guard let content = try? String(contentsOfFile: path, encoding: .utf8) else {
             return (cfg, nil)
         }
 
@@ -131,7 +143,8 @@ public struct SuqiUserConfig: Sendable {
             }
         }
 
-        return (cfg, targetPath)
+        Self.cache = (cfg, path, mtime, size)
+        return (cfg, path)
     }
 
     /// Updates configuration values and writes back to ~/.config/suqi/config with hot reload
@@ -278,21 +291,35 @@ public enum DarwinProcessHelper {
         "-zsh", "-bash", "-fish", "suqi", "ghostty"
     ]
 
-    public static func findLatestChildCwd(for parentPid: pid_t = getpid(), maxDepth: Int = 6) -> String? {
-        func search(pid: pid_t, depth: Int) -> String? {
-            guard depth <= maxDepth else { return nil }
-            let children = getChildPids(for: pid)
-            for child in children.reversed() {
-                if let found = search(pid: child, depth: depth + 1) {
-                    return found
+    public struct ChildProcessInfo {
+        public let name: String?
+        public let cwd: String?
+    }
+
+    /// One process-table walk for the newest foreground child: its name and working directory
+    public static func findLatestChildInfo(for parentPid: pid_t = getpid(), maxDepth: Int = 6) -> ChildProcessInfo? {
+        var name: String?
+        var cwd: String?
+        func search(pid: pid_t, depth: Int) -> Bool {
+            guard depth <= maxDepth else { return false }
+            for child in getChildPids(for: pid).reversed() {
+                if name == nil, let rawName = getProcessName(for: child) {
+                    let clean = rawName.lowercased()
+                    if !clean.isEmpty && !shellProcessNames.contains(clean) {
+                        name = rawName
+                    }
                 }
-                if let cwd = getCwd(for: child), !cwd.isEmpty {
-                    return cwd
+                if cwd == nil, let found = getCwd(for: child), !found.isEmpty {
+                    cwd = found
                 }
+                if name != nil && cwd != nil { return true }
+                if search(pid: child, depth: depth + 1) { return true }
             }
-            return nil
+            return false
         }
-        return search(pid: parentPid, depth: 1)
+        _ = search(pid: parentPid, depth: 1)
+        guard name != nil || cwd != nil else { return nil }
+        return ChildProcessInfo(name: name, cwd: cwd)
     }
 
     public static func getProcessName(for pid: pid_t) -> String? {
@@ -304,25 +331,6 @@ public enum DarwinProcessHelper {
             return name.isEmpty ? nil : name
         }
         return nil
-    }
-
-    public static func findLatestChildProcessName(for parentPid: pid_t = getpid(), maxDepth: Int = 6) -> String? {
-        func search(pid: pid_t, depth: Int) -> String? {
-            guard depth <= maxDepth else { return nil }
-            let children = getChildPids(for: pid)
-            for child in children.reversed() {
-                let rawName = getProcessName(for: child)
-                let clean = rawName?.lowercased() ?? ""
-                if !clean.isEmpty && !shellProcessNames.contains(clean) {
-                    return rawName
-                }
-                if let found = search(pid: child, depth: depth + 1) {
-                    return found
-                }
-            }
-            return nil
-        }
-        return search(pid: parentPid, depth: 1)
     }
 
     public static func hasDescendantProcess(for parentPid: pid_t = getpid(), matching keywords: Set<String>, maxDepth: Int = 6) -> Bool {

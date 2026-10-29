@@ -32,6 +32,7 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
     public let terminalView: AppTerminalView
     private var cancellables = Set<AnyCancellable>()
     private var cwdMonitorTimer: Timer?
+    private var latestProcessInfo: (name: String?, cwd: String?, date: Date)?
     private var lastKnownDirectory: String = ""
 
     public nonisolated static func == (lhs: SuqiTerminalSession, rhs: SuqiTerminalSession) -> Bool {
@@ -165,7 +166,7 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
         ]
 
         // 1. Primary authority: query kernel process table for running child processes
-        if let kernelProc = DarwinProcessHelper.findLatestChildProcessName() {
+        if let kernelProc = currentChildInfo().name {
             let cleanKernel = kernelProc.lowercased()
             if !defaultShells.contains(cleanKernel) {
                 return kernelProc
@@ -191,6 +192,16 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
     /// Indicates whether a non-shell foreground process is running
     public var hasActiveProcess: Bool {
         activeProcessName != nil
+    }
+
+    /// Cached process-table lookup: one walk per second shared by title and cwd fallbacks
+    private func currentChildInfo() -> (name: String?, cwd: String?) {
+        if let cached = latestProcessInfo, Date().timeIntervalSince(cached.date) < 1.0 {
+            return (cached.name, cached.cwd)
+        }
+        let found = DarwinProcessHelper.findLatestChildInfo()
+        latestProcessInfo = (found?.name, found?.cwd, Date())
+        return (found?.name, found?.cwd)
     }
 
     /// Formatted tab title combining active process or formatted path (e.g. ~/Desktop/siqi)
@@ -226,7 +237,7 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
         if let cwd = state.workingDirectory, !cwd.isEmpty {
             return cwd
         }
-        if let childCwd = DarwinProcessHelper.findLatestChildCwd(), !childCwd.isEmpty {
+        if let childCwd = currentChildInfo().cwd, !childCwd.isEmpty {
             return childCwd
         }
         return initialWorkingDirectory
@@ -395,7 +406,7 @@ public final class SuqiTerminalSession: ObservableObject, Identifiable, Equatabl
             workingDirectory: resolvedDir,
             envVars: [
                 "TERM_PROGRAM": "suqi",
-                "TERM_PROGRAM_VERSION": "0.0.23"
+                "TERM_PROGRAM_VERSION": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
             ]
         )
 
