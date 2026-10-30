@@ -139,8 +139,8 @@ public final class NativePinButtonView: NSControl {
         let symbolName = isPinned ? "pin.fill" : "pin"
         let pointSize: CGFloat = isPinned ? 7.0 : 7.5
         let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: isPinned ? .semibold : .medium)
-        if let baseImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Pin")?.withSymbolConfiguration(config) {
-            let tinted = baseImage.copy() as! NSImage
+        if let baseImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Pin")?.withSymbolConfiguration(config),
+           let tinted = baseImage.copy() as? NSImage {
             tinted.lockFocus()
             iconColor.set()
             NSRect(origin: .zero, size: tinted.size).fill(using: .sourceAtop)

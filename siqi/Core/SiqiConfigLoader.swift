@@ -75,6 +75,8 @@ public struct SiqiUserConfig: Sendable {
 
     // mtime+size cache: every body evaluation used to re-read and re-parse the config file
     private static var cache: (config: SiqiUserConfig, filePath: String, mtime: Date, size: UInt64)?
+    // load() is reachable from background callers, so the cache needs a lock.
+    private static let cacheLock = NSLock()
 
     public static func load() -> (config: SiqiUserConfig, filePath: String?) {
         let siqiPath = NSString(string: "~/.config/siqi/config").expandingTildeInPath
@@ -99,8 +101,11 @@ public struct SiqiUserConfig: Sendable {
               let size = attrs[.size] as? UInt64 else {
             return (cfg, nil)
         }
-        if let cache, cache.filePath == path, cache.mtime == mtime, cache.size == size {
-            return (cache.config, path)
+        cacheLock.lock()
+        let cached = Self.cache
+        cacheLock.unlock()
+        if let cached, cached.filePath == path, cached.mtime == mtime, cached.size == size {
+            return (cached.config, path)
         }
         guard let content = try? String(contentsOfFile: path, encoding: .utf8) else {
             return (cfg, nil)
@@ -193,7 +198,9 @@ public struct SiqiUserConfig: Sendable {
             }
         }
 
+        cacheLock.lock()
         Self.cache = (cfg, path, mtime, size)
+        cacheLock.unlock()
         return (cfg, path)
     }
 
@@ -277,6 +284,9 @@ public final class SiqiConfigFileWatcher: ObservableObject {
 
         fileDescriptor = open(path, O_EVTONLY)
         guard fileDescriptor >= 0 else { return }
+        // Cancel handlers run asynchronously, by which time fileDescriptor may
+        // already point at a newer source; close the fd this source owns.
+        let watchedFd = fileDescriptor
 
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fileDescriptor,
@@ -293,10 +303,8 @@ public final class SiqiConfigFileWatcher: ObservableObject {
             }
         }
 
-        source.setCancelHandler { [weak self] in
-            if let fd = self?.fileDescriptor, fd >= 0 {
-                close(fd)
-            }
+        source.setCancelHandler {
+            close(watchedFd)
         }
 
         source.resume()
@@ -444,7 +452,7 @@ public enum SiqiDirectoryManager {
                 let trimmed = fileContent.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
                     let expanded = NSString(string: trimmed).expandingTildeInPath
-                    if !expanded.isEmpty {
+                    if FileManager.default.fileExists(atPath: expanded) {
                         return expanded
                     }
                 }
@@ -453,7 +461,7 @@ public enum SiqiDirectoryManager {
             // Check UserDefaults
             if let saved = UserDefaults.standard.string(forKey: lastDirKey), !saved.isEmpty {
                 let expanded = NSString(string: saved).expandingTildeInPath
-                if !expanded.isEmpty {
+                if FileManager.default.fileExists(atPath: expanded) {
                     return expanded
                 }
             }

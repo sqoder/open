@@ -219,11 +219,13 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
         panel.orderFrontRegardless()
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        // Mark visible before the animation finishes: hide() bails out when this
+        // is false, so a fast second toggle would otherwise be swallowed.
+        isVisible = true
 
         let duration = userConfig.quickTerminalAnimationDuration
         if duration <= 0 {
             panel.setFrame(targetFrame, display: true)
-            isVisible = true
             return
         }
         NSAnimationContext.runAnimationGroup { ctx in

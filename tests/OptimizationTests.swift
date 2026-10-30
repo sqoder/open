@@ -54,10 +54,19 @@ final class ChildProcessInfoTests: XCTestCase {
             process.terminate()
             process.waitUntilExit()
         }
-        Thread.sleep(forTimeInterval: 0.2)
-
-        let info = DarwinProcessHelper.findLatestChildInfo()
-        XCTAssertEqual(info?.name, "sleep")
-        XCTAssertNotNil(info?.cwd)
+        // findLatestChildInfo() scans every child of this process, so other
+        // children spawned by the test host can win "newest". Assert on the
+        // sleep we spawned instead of on the winner.
+        var foundSleep = false
+        for _ in 0..<20 {
+            let children = DarwinProcessHelper.getChildPids(for: getpid())
+            if children.contains(where: { DarwinProcessHelper.getProcessName(for: $0) == "sleep" }) {
+                foundSleep = true
+                break
+            }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        XCTAssertTrue(foundSleep)
+        XCTAssertNotNil(DarwinProcessHelper.findLatestChildInfo()?.cwd)
     }
 }
