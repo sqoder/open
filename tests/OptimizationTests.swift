@@ -252,3 +252,16 @@ final class KeybindingLayoutTests: XCTestCase {
         )!
     }
 }
+
+final class WindowCornerRadiusConfigTests: XCTestCase {
+    func testDefaultWindowCornerRadiusIs18() {
+        let config = SiqiUserConfig()
+        XCTAssertEqual(config.windowCornerRadius, 18.0)
+    }
+
+    func testCustomWindowCornerRadiusParses() {
+        let text = "window-corner-radius = 22"
+        let (config, _) = SiqiUserConfig.load(from: text)
+        XCTAssertEqual(config.windowCornerRadius, 22.0)
+    }
+}

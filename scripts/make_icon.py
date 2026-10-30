@@ -15,7 +15,7 @@ if not os.path.exists(SRC):
 OUT_DIR = "siqi/Resources/Assets.xcassets/AppIcon.appiconset"
 S = 1024                 # master size
 CORNER = 224             # macOS squircle-ish outer radius
-BORDER = 80              # uniform white border thickness (increased from 48)
+BORDER = 64              # uniform white border thickness (tuned between 48 and 80)
 SS = 4                   # supersample factor for smooth edges
 CROP = 62                # crop past corner depth to remove corner haze
 

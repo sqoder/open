@@ -27,6 +27,7 @@ public struct SiqiUserConfig: Sendable {
     public var backgroundBlur: Int = 0
     public var windowPaddingX: Int = 12
     public var windowPaddingY: Int = 8
+    public var windowCornerRadius: Double = 18.0
     public var cursorStyle: String = "bar"
     public var cursorBlink: Bool = true
     public var copyOnSelect: Bool = true
@@ -141,6 +142,8 @@ public struct SiqiUserConfig: Sendable {
                 if let v = Int(val) { cfg.windowPaddingX = v }
             case "window-padding-y":
                 if let v = Int(val) { cfg.windowPaddingY = v }
+            case "window-corner-radius":
+                if let v = Double(val) { cfg.windowCornerRadius = max(0, v) }
             case "macos-titlebar-style":
                 cfg.macosTitlebarStyle = val
             case "window-save-state":

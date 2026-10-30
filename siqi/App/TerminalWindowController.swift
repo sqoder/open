@@ -48,28 +48,56 @@ public final class SiqiTerminalWindow: NSWindow {
         return rect
     }
 
+    public var cornerRadius: CGFloat = 18.0 {
+        didSet {
+            updateCornerRadius()
+        }
+    }
+
     override public func layoutIfNeeded() {
         super.layoutIfNeeded()
         adjustTrafficLights()
         cleanTitlebarDecorations()
+        updateCornerRadius()
     }
 
     override public func setFrame(_ frameRect: NSRect, display displayFlag: Bool) {
         super.setFrame(frameRect, display: displayFlag)
         adjustTrafficLights()
         cleanTitlebarDecorations()
+        updateCornerRadius()
     }
 
     override public func makeKeyAndOrderFront(_ sender: Any?) {
         super.makeKeyAndOrderFront(sender)
         adjustTrafficLights()
         cleanTitlebarDecorations()
+        updateCornerRadius()
     }
 
     override public func orderFront(_ sender: Any?) {
         super.orderFront(sender)
         adjustTrafficLights()
         cleanTitlebarDecorations()
+        updateCornerRadius()
+    }
+
+    public func updateCornerRadius() {
+        let isFull = styleMask.contains(.fullScreen)
+        let actualRadius: CGFloat = isFull ? 0 : cornerRadius
+        if let themeFrame = contentView?.superview {
+            themeFrame.wantsLayer = true
+            themeFrame.layer?.cornerRadius = actualRadius
+            themeFrame.layer?.cornerCurve = .continuous
+            themeFrame.layer?.masksToBounds = !isFull
+        }
+        if let content = contentView {
+            content.wantsLayer = true
+            content.layer?.cornerRadius = actualRadius
+            content.layer?.cornerCurve = .continuous
+            content.layer?.masksToBounds = !isFull
+        }
+        invalidateShadow()
     }
 
     public func adjustTrafficLights() {
@@ -204,16 +232,16 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         // Disable isMovableByWindowBackground so mouse dragging passes cleanly to Terminal for text selection
         window.isMovableByWindowBackground = false
         let baseBg = SiqiTheme.nsBackgroundColor(for: userConfig.themeName, customBackground: userConfig.background)
+        window.isOpaque = false
         if isTranslucent {
-            window.isOpaque = false
             window.backgroundColor = baseBg.withAlphaComponent(CGFloat(userConfig.backgroundOpacity))
             let blurRadius = userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 20
             Self.applyWindowBlur(window: window, radius: blurRadius)
         } else {
             window.backgroundColor = baseBg
-            window.isOpaque = true
             Self.applyWindowBlur(window: window, radius: 0)
         }
+        window.cornerRadius = CGFloat(userConfig.windowCornerRadius)
         window.hasShadow = true
         window.minSize = NSSize(width: 80, height: 32)
         window.contentMinSize = NSSize(width: 80, height: 32)

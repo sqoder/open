@@ -196,7 +196,8 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
             let contentView = ContentView(model: model)
             let hosting = NSHostingView(rootView: contentView)
             hosting.wantsLayer = true
-            hosting.layer?.cornerRadius = 10
+            hosting.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
+            hosting.layer?.cornerCurve = .continuous
             hosting.layer?.masksToBounds = true
             panel.contentView = hosting
 
