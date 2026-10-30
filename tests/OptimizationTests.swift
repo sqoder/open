@@ -70,3 +70,27 @@ final class ChildProcessInfoTests: XCTestCase {
         XCTAssertNotNil(DarwinProcessHelper.findLatestChildInfo()?.cwd)
     }
 }
+
+@MainActor
+final class SiqiTabCloseTests: XCTestCase {
+    func testClosingLastSessionReportsNoPanesRemaining() {
+        let session = SiqiTerminalSession(workingDirectory: NSHomeDirectory())
+        let tab = SiqiTab(session: session)
+        XCTAssertFalse(tab.closeSession(id: session.id))
+    }
+
+    func testClosingOneOfTwoPanesKeepsTab() {
+        let first = SiqiTerminalSession(workingDirectory: NSHomeDirectory())
+        let tab = SiqiTab(session: first)
+        let second = SiqiTerminalSession(workingDirectory: NSHomeDirectory())
+        tab.splitActive(axis: .horizontal, newSession: second)
+        XCTAssertTrue(tab.closeSession(id: second.id))
+        XCTAssertEqual(tab.allSessions.map(\.id), [first.id])
+    }
+
+    func testClosingUnknownSessionReportsWhatRemains() {
+        let session = SiqiTerminalSession(workingDirectory: NSHomeDirectory())
+        let tab = SiqiTab(session: session)
+        XCTAssertTrue(tab.closeSession(id: UUID()))
+    }
+}

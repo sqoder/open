@@ -206,23 +206,22 @@ public final class SiqiTab: ObservableObject, Identifiable {
     }
 
     public func closeSession(id: UUID) -> Bool {
-        if let session = rootPane.findSession(id: id) {
-            session.tearDown()
+        guard let session = rootPane.findSession(id: id) else {
+            // Already closed elsewhere (e.g. the shell exited while ⌘W ran): report
+            // what is left instead of letting callers close the whole tab.
+            return !rootPane.allSessions.isEmpty
         }
-        if let newRoot = rootPane.remove(sessionId: id) {
-            rootPane = newRoot
-            if activeSessionId == id {
-                activeSessionId = rootPane.allSessions.first?.id ?? UUID()
-            }
-            if rootPane.allSessions.count <= 1 {
-                isZoomed = false
-            }
-            paneVersion += 1
-            return true
+        session.tearDown()
+        guard let newRoot = rootPane.remove(sessionId: id) else { return false }
+        rootPane = newRoot
+        if activeSessionId == id {
+            activeSessionId = rootPane.allSessions.first?.id ?? UUID()
         }
-        // Already closed elsewhere (e.g. the shell exited while ⌘W ran): report
-        // what is left instead of letting callers close the whole tab.
-        return !rootPane.allSessions.isEmpty
+        if rootPane.allSessions.count <= 1 {
+            isZoomed = false
+        }
+        paneVersion += 1
+        return true
     }
 
     public func updateSplitFraction(splitId: UUID, fraction: CGFloat) {
