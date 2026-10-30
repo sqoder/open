@@ -287,7 +287,10 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
                 window: window,
                 model: self.model,
                 onCloseRequested: { [weak self] in
-                    self?.closeWindow()
+                    guard let self, let window = self.window else { return }
+                    if self.windowShouldClose(window) {
+                        self.closeWindow()
+                    }
                 }
             )
         }

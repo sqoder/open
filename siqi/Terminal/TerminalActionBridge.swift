@@ -204,6 +204,14 @@ public enum TerminalActionBridge {
 
     // MARK: - User Keybindings (Ghostty-style `keybind` config)
 
+    public static func hasUserBinding(for event: NSEvent, in keybindings: [SiqiKeybinding]) -> Bool {
+        keybindings.contains { matches($0, event: event) }
+    }
+
+    public static func hasUserBinding(for event: NSEvent) -> Bool {
+        hasUserBinding(for: event, in: SiqiUserConfig.load().config.keybindings)
+    }
+
     private static func matches(_ binding: SiqiKeybinding, event: NSEvent) -> Bool {
         var expected: NSEvent.ModifierFlags = []
         if binding.modifiers.contains("cmd") { expected.insert(.command) }
@@ -231,8 +239,16 @@ public enum TerminalActionBridge {
             "comma": ",", "period": ".", "slash": "/", "semicolon": ";",
             "quote": "'", "backslash": "\\", "bracket_left": "[", "bracket_right": "]",
         ]
+        // Match punctuation by physical key too: with a Chinese input source the
+        // event reports "，" for the comma key (X: super+comma binding).
+        let punctuationCodes: [String: UInt16] = [
+            "space": 49, "equal": 24, "minus": 27, "backquote": 50,
+            "comma": 43, "period": 47, "slash": 44, "semicolon": 41,
+            "quote": 39, "backslash": 42, "bracket_left": 33, "bracket_right": 30,
+        ]
         if let character = characters[key] {
             return event.charactersIgnoringModifiers == character
+                || punctuationCodes[key] == event.keyCode
         }
         return event.charactersIgnoringModifiers?.lowercased() == key
     }
@@ -442,7 +458,7 @@ public enum TerminalActionBridge {
 
         // 13. ⌘W (Close active pane / tab / window)
         if flags == .command && event.charactersIgnoringModifiers?.lowercased() == "w" {
-            model.closeActiveSession()
+            model.closeActiveSessionWithConfirmation(in: window)
             return nil
         }
 

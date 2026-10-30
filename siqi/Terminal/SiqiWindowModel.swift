@@ -516,6 +516,12 @@ public final class SiqiWindowModel: ObservableObject {
         tabs.removeAll()
     }
 
+    /// A close or quit needs confirmation only when the user asked for it and a
+    /// program still owns a pty (X-01/X-05).
+    public static func needsCloseConfirmation(config: SiqiUserConfig, runningProcessNames: [String]) -> Bool {
+        config.confirmCloseSurface && !runningProcessNames.isEmpty
+    }
+
     /// Closes the active session, prompting user confirmation only if confirm-close-surface is true
     public func closeActiveSessionWithConfirmation(in window: NSWindow?) {
         guard let session = activeSession else {

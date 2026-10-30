@@ -174,3 +174,106 @@
 - F-04 复核后 `⌃`+点击改为交给 libghostty 处理（保留其选中复制菜单），裸 shell 右键仍显示 siqi 菜单（`evidence/2026-10-30-fix-r01-bare-rightclick.png`）。
 - F-02 设置窗口关闭/最小化后复用同一个 NSWindow，不再每次新建。
 - F-08 恢复时若保存的目录已不存在（删除的项目、卸载的卷），该 pane 回落到 `~`。
+
+## 6. 第三轮补充验证（2026-10-30 18:00–19:28）
+
+环境：siqi `0.0.27 (27)`，源码 `7cba3fd`。本轮使用临时 `~/.config/siqi/config`，其中 `confirm-close-surface = true`；测试结束后清理。
+
+### 6.1 通过项
+
+| 编号 | 结果 | 实测 | 证据 |
+|---|---|---|---|
+| I-01 / I-02 / I-03 | PASS | 拼音输入「你好」正常上屏；候选窗浮在终端上方；无乱码、重叠或缺字 | `evidence/2026-10-30-ime-candidate.png` |
+| L-01 | PASS | `echo https://example.com` 后 `⌘` 点击，Chrome 打开 Example Domain | 本轮实测 |
+| L-02 | PASS | `⌘` 点击绝对文件路径后，Finder 打开 `/tmp/siqi-qa` 并选中 `drag-text.txt` | `evidence/2026-10-30-file-path-finder.png` |
+| S-07 / S-08 / S-09 | PASS | 进入/退出全屏正常；缩到阈值下出现 80×32 胶囊；胶囊展开后恢复窗口 | 本轮实测 |
+| X-03 | PASS | `sleep 1000` 时点红灯，出现「Close window with running process 'sleep'?」；Cancel 后窗口保留 | 本轮实测 |
+| X-04 | PASS | 无前台进程时关闭窗口直接关闭，不弹确认 | 本轮实测 |
+| N-01 | PASS | OSC 9 触发系统通知权限提示 | `evidence/2026-10-30-notification-banner.png` |
+| 快速终端 `⌘K` | PASS | 快速终端中清屏前后画面正确，`⌘K` 立即清屏 | `evidence/2026-10-30-quick-cmdk-before.jpg`、`...-after.jpg` |
+| P-05 | PASS | 在 Claude CLI 中粘贴剪贴板图片，输入区出现 `[Image #1]`，未提交 | `evidence/2026-10-30-ai-image-paste.png` |
+| P-06 | PASS | 图片 + 文本文件 URL 混选后粘贴，出现 `[Image #2]`，未把文本路径当纯文本贴入，未提交 | `evidence/2026-10-30-ai-image-text-paste.png` |
+| Settings | PASS | `⌘,` 打开完整设置窗口 | `evidence/2026-10-30-fix-f02-settings.png` |
+| ST-01 | PASS（资源） | `yes > /dev/null` 持续约 10 分钟；siqi RSS 从 166,160 KB 降至 154,624 KB，CPU 0.0%（仅一次 0.7% 采样），无持续增长 | 采样记录见 §6.5 |
+
+自动化基线：`xcodebuild test -project siqi.xcodeproj -scheme siqi -destination 'platform=macOS'` 本轮已通过 **18/18**。
+
+### 6.2 失败项
+
+#### X-01 `⌘W` 关闭运行中标签不确认
+
+- 严重度：high
+- 复现：单窗口单标签运行 `sleep 1000`，按 `⌘W`。
+- 期望：出现关闭确认；取消后标签保留。
+- 实际：窗口直接关闭，没有确认框；随后 `pgrep -x sleep` 无结果。
+- 证据：`evidence/2026-10-30-x01-before-cmdw.png`、`...-x01-after-cmdw.png`
+- 备注：`TerminalActionBridge.swift` 的 `⌘W` 分支调用 `model.closeActiveSession()`，未走 `closeActiveSessionWithConfirmation`。
+
+#### X-05 `⌘Q` 退出运行中应用不确认
+
+- 严重度：high
+- 复现：窗口运行 `sleep 1000`，通过应用菜单 `Quit siqi` 退出。
+- 期望：按配置弹出确认；取消后应用保留。
+- 实际：应用直接退出，siqi 进程消失，没有确认框。
+- 备注：随后重新启动 siqi 才继续测试。
+
+### 6.3 已知风险复核
+
+- **自定义 `super+comma=new_tab` 被菜单覆盖**：配置写入后重新加载/重启，按 `⌘,` 仍打开 Settings，而不是新建标签。证据：`evidence/2026-10-30-keybind-comma-settings.png`。
+- **选中文本右键**：本轮实际观察到的是 siqi 自己的菜单（Copy/Paste/Split…），不是 libghostty 的复制菜单；与“选中文本后交给 libghostty”的既有描述不一致。证据：`evidence/2026-10-30-selected-rightclick.png`。此项不据此判定为产品失败，保留为待确认差异。
+
+### 6.4 未验证或受工具限制
+
+- X-02：被 X-01 阻塞，无法测试 Cancel 分支。
+- PN-01..PN-03：置顶控件是自绘 `NSControl`，Computer Use 坐标点击返回 `AXError.notImplemented`；未取得窗口 `layer=floating` 的前后证据，未判定失败。
+- P-09 / P-10、L-03 / L-04 / L-05：尝试从 Finder 拖到终端，CUA 跨应用拖放没有把路径插入终端；属于工具限制，未判定产品失败。
+- N-02 / N-03：只观察到权限提示，未授予通知权限，未测试拒绝和已授权通知。
+- P-07：浏览器空图未测试。
+- ST-02..ST-05：本轮未执行窗口/标签反复开关、多窗口切换和 fd 检查。
+
+### 6.5 稳定性
+
+ST-01 资源采样：在 siqi 标签中运行 `yes > /dev/null`，每 60 秒采样一次，共 10 分钟。
+
+| 时间 | siqi RSS (KB) | siqi CPU | yes CPU |
+|---|---:|---:|---:|
+| 19:17:19 | 166,160 | 0.0% | 100.0% |
+| 19:18:19 | 166,176 | 0.0% | 99.0% |
+| 19:19:19 | 166,160 | 0.0% | 99.4% |
+| 19:20:19 | 166,160 | 0.0% | 99.1% |
+| 19:21:19 | 166,160 | 0.0% | 100.0% |
+| 19:22:19 | 164,480 | 0.0% | 98.8% |
+| 19:23:19 | 164,480 | 0.0% | 100.0% |
+| 19:24:19 | 164,304 | 0.0% | 98.7% |
+| 19:25:19 | 161,744 | 0.7% | 99.7% |
+| 19:26:20 | 161,424 | 0.0% | 100.0% |
+| 19:27:20 | 154,624 | 0.0% | 100.0% |
+
+测试后已 `Ctrl+C` 停止 `yes`，并确认没有残留 `yes` 进程。该轮只验证资源趋势，没有单独量化持续输入延迟。
+
+## 7. 第四轮修复验证（2026-10-30 19:40–20:05）
+
+环境：siqi Release 构建（`./scripts/install.sh` 安装），临时 `~/.config/siqi/config` 含 `confirm-close-surface = true`；验证完成后删除该文件并退出 siqi。
+
+### 7.1 修复项
+
+| 编号 | 结果 | 实测 | 证据 |
+|---|---|---|---|
+| X-01 | PASS | 单标签运行 `yes` 后按 `⌘W`，弹出「Close window with running process 'yes'?」；Cancel 后标签和进程保留；Close 后窗口关闭且 `yes` 进程结束 | `evidence/2026-10-30-x01-confirm-dialog.png` |
+| X-02 | PASS | X-01 的 Cancel 分支保留会话，`yes` 继续运行，可再次触发确认 | 本轮实测 |
+| X-05 | PASS | 运行中通过菜单 `Quit siqi` 退出，弹出「Quit siqi with running processes?」；Cancel 后应用保留；Quit 后应用退出且 `yes` 进程结束 | `evidence/2026-10-30-x05-quit-dialog.png` |
+| 自定义键位 `super+comma=new_tab` | PASS | 写入配置后 `⌘,` 新建标签（2 个标签），不打开 Settings；移除该配置后 `⌘,` 恢复打开 Settings | `evidence/2026-10-30-keybind-comma-newtab.png`、`...-keybind-comma-default-settings.png` |
+
+说明：X-01/X-05 的确认框受 `confirm-close-surface` 控制，默认关闭；开启且有前台进程时才提示，符合配置语义。`⌘⇧W` 关闭窗口同样先走确认。
+
+### 7.2 待确认差异的处理
+
+- **选中文本右键菜单**：判定为预期行为，不是缺陷。裸 shell 下右键按 R-01 设计显示 siqi 自己的菜单；只有 control+click 或前台程序占用 pty 时才交给 libghostty 的菜单（F-03/F-04）。第三轮观察到的现象与设计一致。
+
+### 7.3 自动化
+
+`xcodebuild test -project siqi.xcodeproj -scheme siqi -destination 'platform=macOS'`：**24/24 通过**（新增关闭确认策略、键位覆盖、标点物理键位匹配等用例）。
+
+### 7.4 仍未验证
+
+- PN-01..PN-03、P-09/P-10、L-03..L-05、N-02/N-03、P-07、ST-02..ST-05：同第三轮，受工具限制或未执行。

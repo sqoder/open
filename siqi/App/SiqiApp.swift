@@ -22,10 +22,11 @@ struct SiqiApp: App {
             // Replace the automatic Settings item so it cannot open the blank
             // SwiftUI settings window (F-02).
             CommandGroup(replacing: .appSettings) {
+                // No key equivalent here: a menu shortcut would shadow a user
+                // `super+comma` binding; ⌘, is handled in performKeyEquivalent.
                 Button("Settings…") {
                     SiqiWindowManager.shared.openSettingsWindow()
                 }
-                .keyboardShortcut(",", modifiers: .command)
             }
 
             // MARK: - File Menu

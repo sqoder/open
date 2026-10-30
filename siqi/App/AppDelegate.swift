@@ -24,6 +24,22 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         SiqiWindowManager.shared.saveWindowState()
     }
 
+    /// Quit confirmation when a program still owns a pty (X-05)
+    public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let (config, _) = SiqiUserConfig.load()
+        let running = SiqiWindowManager.shared.runningProcessNames
+        guard SiqiWindowModel.needsCloseConfirmation(config: config, runningProcessNames: running) else {
+            return .terminateNow
+        }
+        let alert = NSAlert()
+        alert.messageText = "Quit siqi with running processes?"
+        alert.informativeText = "Quitting will terminate: \(running.joined(separator: ", "))."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Quit")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn ? .terminateNow : .terminateCancel
+    }
+
     public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag || SiqiWindowManager.shared.windowControllers.isEmpty {
             _ = SiqiWindowManager.shared.createWindow()

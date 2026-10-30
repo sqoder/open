@@ -307,6 +307,9 @@ extension AppTerminalView {
             let originalKeyEquivalentIMP = method_getImplementation(keyEquivalentMethod)
             let block: @convention(block) (AnyObject, NSEvent) -> Bool = { target, event in
                 if AppTerminalView.isSettingsShortcut(event) {
+                    // A user keybind for this key wins over the built-in Settings
+                    // shortcut; let the event fall through to the dispatcher.
+                    if TerminalActionBridge.hasUserBinding(for: event) { return false }
                     SiqiWindowManager.shared.openSettingsWindow()
                     return true
                 }

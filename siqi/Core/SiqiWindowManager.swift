@@ -215,6 +215,13 @@ public final class SiqiWindowManager: ObservableObject {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    /// Foreground programs across every window, for the quit confirmation (X-05)
+    public var runningProcessNames: [String] {
+        windowControllers.flatMap { controller in
+            controller.model.sessions.filter { $0.hasActiveProcess }.compactMap { $0.activeProcessName }
+        }
+    }
+
     // MARK: - Window / Tab / Pane Restore (F-08)
 
     /// Snapshots every window's tabs and split tree; skipped when window-save-state=never

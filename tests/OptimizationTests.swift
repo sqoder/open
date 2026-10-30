@@ -177,3 +177,74 @@ final class RestoredDirectoryTests: XCTestCase {
         XCTAssertEqual(SiqiWindowStateStore.usableDirectory("/tmp"), "/tmp")
     }
 }
+
+@MainActor
+final class CloseConfirmationPolicyTests: XCTestCase {
+    func testConfirmsWhenEnabledAndAProcessRuns() {
+        var config = SiqiUserConfig()
+        config.confirmCloseSurface = true
+        XCTAssertTrue(SiqiWindowModel.needsCloseConfirmation(config: config, runningProcessNames: ["sleep"]))
+    }
+
+    func testSkipsConfirmationWhenDisabled() {
+        var config = SiqiUserConfig()
+        config.confirmCloseSurface = false
+        XCTAssertFalse(SiqiWindowModel.needsCloseConfirmation(config: config, runningProcessNames: ["sleep"]))
+    }
+
+    func testSkipsConfirmationWhenNothingRuns() {
+        var config = SiqiUserConfig()
+        config.confirmCloseSurface = true
+        XCTAssertFalse(SiqiWindowModel.needsCloseConfirmation(config: config, runningProcessNames: []))
+    }
+}
+
+@MainActor
+final class KeybindingOverrideTests: XCTestCase {
+    func testUserBindingClaimsCommandComma() {
+        let bindings = [SiqiUserConfig.parseKeybinding("super+comma=new_tab")!]
+        XCTAssertTrue(TerminalActionBridge.hasUserBinding(for: commaEvent(), in: bindings))
+    }
+
+    func testNoUserBindingLeavesCommandCommaToSettings() {
+        XCTAssertFalse(TerminalActionBridge.hasUserBinding(for: commaEvent(), in: []))
+    }
+
+    private func commaEvent() -> NSEvent {
+        NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: .command,
+            timestamp: 1,
+            windowNumber: 0,
+            context: nil,
+            characters: ",",
+            charactersIgnoringModifiers: ",",
+            isARepeat: false,
+            keyCode: 43
+        )!
+    }
+}
+
+@MainActor
+final class KeybindingLayoutTests: XCTestCase {
+    func testCommaBindingMatchesByPhysicalKeyUnderChineseInput() {
+        let bindings = [SiqiUserConfig.parseKeybinding("super+comma=new_tab")!]
+        XCTAssertTrue(TerminalActionBridge.hasUserBinding(for: fullWidthCommaEvent(), in: bindings))
+    }
+
+    private func fullWidthCommaEvent() -> NSEvent {
+        NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: .command,
+            timestamp: 1,
+            windowNumber: 0,
+            context: nil,
+            characters: "，",
+            charactersIgnoringModifiers: "，",
+            isARepeat: false,
+            keyCode: 43
+        )!
+    }
+}
