@@ -309,7 +309,7 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
     }
 
     public func clearScreen() {
-        state.send("clear\n")
+        _ = state.performBindingAction("clear_screen")
     }
 
     public static func buildTerminalConfiguration(userConfig: SiqiUserConfig) -> TerminalConfiguration {

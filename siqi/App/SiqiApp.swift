@@ -19,6 +19,15 @@ struct SiqiApp: App {
             SettingsView()
         }
         .commands {
+            // Replace the automatic Settings item so it cannot open the blank
+            // SwiftUI settings window (F-02).
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    SiqiWindowManager.shared.openSettingsWindow()
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+
             // MARK: - File Menu
             CommandGroup(replacing: .newItem) {
                 Button("New Window") {
@@ -70,8 +79,8 @@ struct SiqiApp: App {
                 .keyboardShortcut("w", modifiers: [.command, .shift])
             }
 
-            // MARK: - Edit Menu
-            CommandMenu("Edit") {
+            // MARK: - Edit Menu (standard placement, no duplicate menu)
+            CommandGroup(replacing: .pasteboard) {
                 Button("Cut") {
                     NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil)
                 }
@@ -104,9 +113,9 @@ struct SiqiApp: App {
                     }
                 }
                 .keyboardShortcut("a", modifiers: .command)
+            }
 
-                Divider()
-
+            CommandGroup(replacing: .textEditing) {
                 Button("Find...") {
                     SiqiWindowManager.shared.activeWindowController?.model.isSearching.toggle()
                 }
@@ -171,8 +180,8 @@ struct SiqiApp: App {
                 }
             }
 
-            // MARK: - View Menu
-            CommandMenu("View") {
+            // MARK: - View Menu (items folded into the standard View menu)
+            CommandGroup(after: .toolbar) {
                 Button("Increase Font Size") {
                     _ = SiqiWindowManager.shared.activeWindowController?.model.activeSession?.state.performBindingAction("increase_font_size:1")
                 }
