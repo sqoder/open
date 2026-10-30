@@ -192,12 +192,8 @@ public final class SiqiWindowManager: ObservableObject {
             return
         }
 
-        // Try standard macOS SwiftUI showSettingsWindow selector
-        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
-            return
-        }
-
-        // Fallback: Create dedicated native window hosting SettingsView
+        // Host SettingsView in a real window: the SwiftUI Settings scene opens an
+        // empty 500×500 window on this build (F-02).
         let settingsView = SettingsView()
         let hostingView = NSHostingView(rootView: settingsView)
         let window = NSWindow(

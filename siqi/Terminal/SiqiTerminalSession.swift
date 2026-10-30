@@ -177,14 +177,20 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
     }
 
     /// Detects active foreground process running in this session (e.g. vim, nvim, ssh, python, cargo, agy, claude, codex)
-    public var activeProcessName: String? {
+    public var activeProcessName: String? { processName(fresh: false) }
+
+    /// Same as `activeProcessName` without the 1-second cache: a right-click must
+    /// see the program that owns the pty right now (F-03).
+    public func activeProcessNameFresh() -> String? { processName(fresh: true) }
+
+    private func processName(fresh: Bool) -> String? {
         let defaultShells: Set<String> = [
             "zsh", "bash", "fish", "sh", "tcsh", "csh", "ksh", "login",
             "-zsh", "-bash", "-fish", "siqi"
         ]
 
         // 1. Primary authority: query kernel process table for running child processes
-        if let kernelProc = currentChildInfo().name {
+        if let kernelProc = currentChildInfo(fresh: fresh).name {
             let cleanKernel = kernelProc.lowercased()
             if !defaultShells.contains(cleanKernel) {
                 return kernelProc
@@ -216,8 +222,8 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
     public var foregroundPid: pid_t? { terminalView.foregroundPid }
 
     /// Cached process lookup: one lookup per second shared by title and cwd fallbacks
-    private func currentChildInfo() -> (name: String?, cwd: String?) {
-        if let cached = latestProcessInfo, Date().timeIntervalSince(cached.date) < 1.0 {
+    private func currentChildInfo(fresh: Bool = false) -> (name: String?, cwd: String?) {
+        if !fresh, let cached = latestProcessInfo, Date().timeIntervalSince(cached.date) < 1.0 {
             return (cached.name, cached.cwd)
         }
         let pid = foregroundPid

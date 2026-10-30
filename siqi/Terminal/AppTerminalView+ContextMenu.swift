@@ -230,6 +230,8 @@ extension AppTerminalView {
             originalRightMouseDownIMP = method_getImplementation(originalMethod)
             let block: @convention(block) (AnyObject, NSEvent) -> Void = { target, event in
                 guard let view = target as? AppTerminalView else { return }
+                // Control-click is not a request for siqi's menu (R-03/F-04).
+                if event.modifierFlags.contains(.control) { return }
                 view.window?.makeFirstResponder(view)
 
                 if let window = view.window {
@@ -244,7 +246,7 @@ extension AppTerminalView {
                         }
                         // A program owns the pty (herdr, vim, ...): hand the click
                         // to it so its own popup shows, not ours.
-                        if session.hasActiveProcess {
+                        if session.activeProcessNameFresh() != nil {
                             if let originalIMP = AppTerminalView.originalRightMouseDownIMP {
                                 typealias Fn = @convention(c) (AnyObject, Selector, NSEvent) -> Void
                                 unsafeBitCast(originalIMP, to: Fn.self)(view, #selector(NSResponder.rightMouseDown(with:)), event)
@@ -266,6 +268,7 @@ extension AppTerminalView {
             let menuBlock: @convention(block) (AnyObject, NSEvent) -> NSMenu? = { target, event in
                 guard let view = target as? AppTerminalView,
                       let window = view.window else { return nil }
+                if event.modifierFlags.contains(.control) { return nil }
                 let model: SiqiWindowModel? = {
                     if window is QuickTerminalPanel { return QuickTerminalController.shared.model }
                     if let wc = window.windowController as? TerminalWindowController { return wc.model }
