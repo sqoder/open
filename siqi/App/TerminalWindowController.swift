@@ -113,9 +113,9 @@ public final class SiqiTerminalWindow: NSWindow {
             return
         }
 
-        // Modern macOS breathing room: offset traffic lights comfortably under the 20pt rounded corner (16pt from top)
+        // Modern macOS breathing room: offset traffic lights comfortably under the 28pt rounded corner (18pt from top, 18pt from left)
         let superHeight = container.frame.height
-        let targetY: CGFloat = max(0, superHeight - 14.0 - 16.0)
+        let targetY: CGFloat = max(0, superHeight - 14.0 - 18.0)
         let targetStartX: CGFloat = 18.0
         let spacing: CGFloat = 20.0
 

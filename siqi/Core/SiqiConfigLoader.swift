@@ -27,7 +27,7 @@ public struct SiqiUserConfig: Sendable {
     public var backgroundBlur: Int = 0
     public var windowPaddingX: Int = 12
     public var windowPaddingY: Int = 8
-    public var windowCornerRadius: Double = 20.0
+    public var windowCornerRadius: Double = 28.0
     public var cursorStyle: String = "bar"
     public var cursorBlink: Bool = true
     public var copyOnSelect: Bool = true
