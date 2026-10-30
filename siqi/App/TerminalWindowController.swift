@@ -232,15 +232,11 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         // Disable isMovableByWindowBackground so mouse dragging passes cleanly to Terminal for text selection
         window.isMovableByWindowBackground = false
         let baseBg = SiqiTheme.nsBackgroundColor(for: userConfig.themeName, customBackground: userConfig.background)
+        let targetBg = isTranslucent ? baseBg.withAlphaComponent(CGFloat(userConfig.backgroundOpacity)) : baseBg
         window.isOpaque = false
-        if isTranslucent {
-            window.backgroundColor = baseBg.withAlphaComponent(CGFloat(userConfig.backgroundOpacity))
-            let blurRadius = userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 20
-            Self.applyWindowBlur(window: window, radius: blurRadius)
-        } else {
-            window.backgroundColor = baseBg
-            Self.applyWindowBlur(window: window, radius: 0)
-        }
+        window.backgroundColor = .clear
+        let blurRadius = isTranslucent ? (userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 20) : 0
+        Self.applyWindowBlur(window: window, radius: blurRadius)
         window.cornerRadius = CGFloat(userConfig.windowCornerRadius)
         window.hasShadow = true
         window.minSize = NSSize(width: 80, height: 32)
@@ -255,8 +251,12 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         let contentView = ContentView(model: model)
         let hostingView = SiqiHostingView(rootView: contentView)
         hostingView.wantsLayer = true
-        hostingView.layer?.backgroundColor = isTranslucent ? NSColor.clear.cgColor : baseBg.cgColor
+        hostingView.layer?.backgroundColor = targetBg.cgColor
+        hostingView.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
+        hostingView.layer?.cornerCurve = .continuous
+        hostingView.layer?.masksToBounds = true
         window.contentView = hostingView
+        window.updateCornerRadius()
 
         // Connect native pin button to window model
         window.pinButton.model = model
@@ -412,16 +412,24 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         Self.applyTitlebarStyle(userConfig.macosTitlebarStyle, to: window)
         let isTranslucent = userConfig.backgroundOpacity < 1.0 || userConfig.backgroundBlur > 0
         let baseBg = SiqiTheme.nsBackgroundColor(for: userConfig.themeName, customBackground: userConfig.background)
-        if isTranslucent {
-            window.isOpaque = false
-            window.backgroundColor = baseBg.withAlphaComponent(CGFloat(userConfig.backgroundOpacity))
-            let blurRadius = userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 20
-            Self.applyWindowBlur(window: window, radius: blurRadius)
-        } else {
-            window.backgroundColor = baseBg
-            window.isOpaque = true
-            Self.applyWindowBlur(window: window, radius: 0)
+        let targetBg = isTranslucent ? baseBg.withAlphaComponent(CGFloat(userConfig.backgroundOpacity)) : baseBg
+
+        window.isOpaque = false
+        window.backgroundColor = .clear
+
+        let blurRadius = isTranslucent ? (userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 20) : 0
+        Self.applyWindowBlur(window: window, radius: blurRadius)
+
+        if let termWin = window as? SiqiTerminalWindow {
+            termWin.cornerRadius = CGFloat(userConfig.windowCornerRadius)
+            termWin.updateCornerRadius()
         }
+        window.contentView?.wantsLayer = true
+        window.contentView?.layer?.backgroundColor = targetBg.cgColor
+        window.contentView?.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
+        window.contentView?.layer?.cornerCurve = .continuous
+        window.contentView?.layer?.masksToBounds = true
+        window.invalidateShadow()
     }
 
     public func showWindow() {

@@ -208,14 +208,17 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
 
         let isTranslucent = userConfig.backgroundOpacity < 1.0 || userConfig.backgroundBlur > 0
         let baseBg = SiqiTheme.nsBackgroundColor(for: userConfig.themeName, customBackground: userConfig.background)
-        if isTranslucent {
-            panel.backgroundColor = baseBg.withAlphaComponent(CGFloat(userConfig.backgroundOpacity))
-            let blurRadius = userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 20
-            TerminalWindowController.applyWindowBlur(window: panel, radius: blurRadius)
-        } else {
-            panel.backgroundColor = baseBg
-            TerminalWindowController.applyWindowBlur(window: panel, radius: 0)
-        }
+        let targetBg = isTranslucent ? baseBg.withAlphaComponent(CGFloat(userConfig.backgroundOpacity)) : baseBg
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.contentView?.wantsLayer = true
+        panel.contentView?.layer?.backgroundColor = targetBg.cgColor
+        panel.contentView?.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
+        panel.contentView?.layer?.cornerCurve = .continuous
+        panel.contentView?.layer?.masksToBounds = true
+        let blurRadius = isTranslucent ? (userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 20) : 0
+        TerminalWindowController.applyWindowBlur(window: panel, radius: blurRadius)
+        panel.invalidateShadow()
 
         panel.setFrame(
             offscreenFrame(from: targetFrame, visible: screen.visibleFrame, position: userConfig.quickTerminalPosition),
