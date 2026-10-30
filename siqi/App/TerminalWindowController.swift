@@ -113,10 +113,10 @@ public final class SiqiTerminalWindow: NSWindow {
             return
         }
 
-        // Modern macOS breathing room: center traffic light buttons vertically in 32pt titlebar
+        // Modern macOS breathing room: offset traffic lights comfortably under the 20pt rounded corner (16pt from top)
         let superHeight = container.frame.height
-        let targetY: CGFloat = max(0, (superHeight - 14.0) / 2.0)
-        let targetStartX: CGFloat = 13.0
+        let targetY: CGFloat = max(0, superHeight - 14.0 - 16.0)
+        let targetStartX: CGFloat = 18.0
         let spacing: CGFloat = 20.0
 
         close.setFrameOrigin(NSPoint(x: targetStartX, y: targetY))
