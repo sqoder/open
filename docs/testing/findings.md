@@ -277,3 +277,9 @@ ST-01 资源采样：在 siqi 标签中运行 `yes > /dev/null`，每 60 秒采�
 ### 7.4 仍未验证
 
 - PN-01..PN-03、P-09/P-10、L-03..L-05、N-02/N-03、P-07、ST-02..ST-05：同第三轮，受工具限制或未执行。
+
+### 7.5 默认值调整（20:02）
+
+`confirm-close-surface` 默认值由 `false` 改为 `true`，开箱即有确认。实测（无 `~/.config/siqi/config` 时）：⌘W 弹「Close session running 'yes'?」，Cancel 保留进程，Close 关闭标签并结束进程。证据：`evidence/2026-10-30-default-confirm-dialog.png`。自动化 25/25。
+
+注意配置优先级：`~/.config/siqi/config` → `~/.config/suqi/config` → `~/.config/ghostty/config`。任一处显式写 `confirm-close-surface = false` 都会覆盖默认值。本次已把 `~/.config/suqi/config` 中的该行改为 `true`（备份在 `/tmp/suqi-config-backup-200246`）；`~/.config/ghostty/config` 仍为 `false`，仅在 siqi/suqi 配置不存在时生效。

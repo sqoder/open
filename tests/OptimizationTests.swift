@@ -197,6 +197,10 @@ final class CloseConfirmationPolicyTests: XCTestCase {
         config.confirmCloseSurface = true
         XCTAssertFalse(SiqiWindowModel.needsCloseConfirmation(config: config, runningProcessNames: []))
     }
+
+    func testDefaultConfigConfirmsCloseWithRunningProcess() {
+        XCTAssertTrue(SiqiWindowModel.needsCloseConfirmation(config: SiqiUserConfig(), runningProcessNames: ["sleep"]))
+    }
 }
 
 @MainActor

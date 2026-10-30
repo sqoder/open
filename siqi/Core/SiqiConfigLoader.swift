@@ -44,7 +44,7 @@ public struct SiqiUserConfig: Sendable {
     public var mouseScrollMultiplier: Double = 1.0
     public var command: String? = nil
     public var fontFeatures: [String] = []
-    public var confirmCloseSurface: Bool = false
+    public var confirmCloseSurface: Bool = true
     public var keybindings: [SiqiKeybinding] = []
     public var quickTerminalPosition: String = "top"
     public var quickTerminalScreen: String = "mouse"
