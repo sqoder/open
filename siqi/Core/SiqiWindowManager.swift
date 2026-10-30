@@ -186,7 +186,10 @@ public final class SiqiWindowManager: ObservableObject {
 
     /// Opens or brings to front the native Settings window
     public func openSettingsWindow() {
-        if let win = settingsWindow, win.isVisible {
+        // Reuse the same window across open/close and minimize; only the first
+        // call builds it.
+        if let win = settingsWindow {
+            win.deminiaturize(nil)
             win.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -313,6 +316,16 @@ public enum SiqiWindowStateStore {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { return nil }
         return try? JSONDecoder().decode(SiqiPersistedState.self, from: data)
     }
+
+    /// A restored pane falls back to home when its saved directory is gone
+    /// (deleted project, unmounted volume).
+    public static func usableDirectory(_ path: String) -> String {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return NSHomeDirectory()
+        }
+        return path
+    }
 }
 
 @MainActor
@@ -334,7 +347,7 @@ extension SiqiPersistedPane {
     func buildNode() -> PaneNode {
         switch self {
         case .leaf(let cwd):
-            return .terminal(SiqiTerminalSession(workingDirectory: cwd))
+            return .terminal(SiqiTerminalSession(workingDirectory: SiqiWindowStateStore.usableDirectory(cwd)))
         case .split(let axis, let fraction, let first, let second):
             return .split(
                 id: UUID(),

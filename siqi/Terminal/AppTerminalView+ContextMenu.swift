@@ -195,6 +195,12 @@ extension AppTerminalView {
     private static var originalMouseDownIMP: IMP?
     private static var originalRightMouseDownIMP: IMP?
 
+    /// A control-click or a program that owns the pty means the terminal, not
+    /// siqi, owns the right-click (F-03/F-04).
+    public static func handsOffContextMenu(control: Bool, processRunning: Bool) -> Bool {
+        control || processRunning
+    }
+
     /// ⌘, (Settings). Matched by key code as well as character: with a Chinese
     /// input source the key reports "，", and libghostty's keybind table claims
     /// it before the menu does (F-02).
@@ -241,30 +247,28 @@ extension AppTerminalView {
             originalRightMouseDownIMP = method_getImplementation(originalMethod)
             let block: @convention(block) (AnyObject, NSEvent) -> Void = { target, event in
                 guard let view = target as? AppTerminalView else { return }
-                // Control-click is not a request for siqi's menu (R-03/F-04).
-                if event.modifierFlags.contains(.control) { return }
                 view.window?.makeFirstResponder(view)
 
-                if let window = view.window {
-                    let model: SiqiWindowModel? = {
-                        if window is QuickTerminalPanel { return QuickTerminalController.shared.model }
-                        if let wc = window.windowController as? TerminalWindowController { return wc.model }
-                        return SiqiWindowManager.shared.activeWindowController?.model
-                    }()
-                    if let model, let session = model.tabs.flatMap({ $0.allSessions }).first(where: { $0.terminalView === view }) {
-                        if model.activeSessionId != session.id {
-                            model.activeSessionId = session.id
-                        }
-                        // A program owns the pty (herdr, vim, ...): hand the click
-                        // to it so its own popup shows, not ours.
-                        if session.activeProcessNameFresh() != nil {
-                            if let originalIMP = AppTerminalView.originalRightMouseDownIMP {
-                                typealias Fn = @convention(c) (AnyObject, Selector, NSEvent) -> Void
-                                unsafeBitCast(originalIMP, to: Fn.self)(view, #selector(NSResponder.rightMouseDown(with:)), event)
-                            }
-                            return
-                        }
+                let model: SiqiWindowModel? = {
+                    guard let window = view.window else { return nil }
+                    if window is QuickTerminalPanel { return QuickTerminalController.shared.model }
+                    if let wc = window.windowController as? TerminalWindowController { return wc.model }
+                    return SiqiWindowManager.shared.activeWindowController?.model
+                }()
+                let session = model?.tabs.flatMap({ $0.allSessions }).first(where: { $0.terminalView === view })
+                if let model, let session, model.activeSessionId != session.id {
+                    model.activeSessionId = session.id
+                }
+
+                // A program owns the pty (vim, top, ...) or the click is a
+                // control-click: hand it to the terminal so its own menu shows.
+                let processRunning = session.map { $0.activeProcessNameFresh() != nil } ?? false
+                if AppTerminalView.handsOffContextMenu(control: event.modifierFlags.contains(.control), processRunning: processRunning) {
+                    if let originalIMP = AppTerminalView.originalRightMouseDownIMP {
+                        typealias Fn = @convention(c) (AnyObject, Selector, NSEvent) -> Void
+                        unsafeBitCast(originalIMP, to: Fn.self)(view, #selector(NSResponder.rightMouseDown(with:)), event)
                     }
+                    return
                 }
 
                 let menu = TerminalContextMenuBridge.shared.buildMenu(for: view)
@@ -276,18 +280,21 @@ extension AppTerminalView {
 
         // 2. Swizzle menu(for:)
         if let menuMethod = class_getInstanceMethod(AppTerminalView.self, #selector(NSView.menu(for:))) {
+            let originalMenuIMP = method_getImplementation(menuMethod)
             let menuBlock: @convention(block) (AnyObject, NSEvent) -> NSMenu? = { target, event in
                 guard let view = target as? AppTerminalView,
                       let window = view.window else { return nil }
-                if event.modifierFlags.contains(.control) { return nil }
                 let model: SiqiWindowModel? = {
                     if window is QuickTerminalPanel { return QuickTerminalController.shared.model }
                     if let wc = window.windowController as? TerminalWindowController { return wc.model }
                     return nil
                 }()
-                guard let model,
-                      let session = model.tabs.flatMap({ $0.allSessions }).first(where: { $0.terminalView === view }),
-                      !session.hasActiveProcess else { return nil }
+                let session = model?.tabs.flatMap({ $0.allSessions }).first(where: { $0.terminalView === view })
+                let processRunning = session.map { $0.hasActiveProcess } ?? false
+                if AppTerminalView.handsOffContextMenu(control: event.modifierFlags.contains(.control), processRunning: processRunning) {
+                    typealias Fn = @convention(c) (AnyObject, Selector, NSEvent) -> NSMenu?
+                    return unsafeBitCast(originalMenuIMP, to: Fn.self)(view, #selector(NSView.menu(for:)), event)
+                }
                 return TerminalContextMenuBridge.shared.buildMenu(for: view)
             }
             let swizzledIMP = imp_implementationWithBlock(menuBlock)

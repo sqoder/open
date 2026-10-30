@@ -145,3 +145,35 @@ final class KeyEquivalentPolicyTests: XCTestCase {
         )!
     }
 }
+
+@MainActor
+final class ContextMenuPolicyTests: XCTestCase {
+    func testControlClickHandsOffToTerminal() {
+        XCTAssertTrue(AppTerminalView.handsOffContextMenu(control: true, processRunning: false))
+    }
+
+    func testRunningProgramHandsOffToTerminal() {
+        XCTAssertTrue(AppTerminalView.handsOffContextMenu(control: false, processRunning: true))
+    }
+
+    func testBareShellRightClickKeepsSiqiMenu() {
+        XCTAssertFalse(AppTerminalView.handsOffContextMenu(control: false, processRunning: false))
+    }
+}
+
+final class RestoredDirectoryTests: XCTestCase {
+    func testMissingDirectoryFallsBackToHome() {
+        XCTAssertEqual(
+            SiqiWindowStateStore.usableDirectory("/definitely/not/here"),
+            NSHomeDirectory()
+        )
+    }
+
+    func testRegularFileFallsBackToHome() {
+        XCTAssertEqual(SiqiWindowStateStore.usableDirectory("/etc/hosts"), NSHomeDirectory())
+    }
+
+    func testExistingDirectoryIsKept() {
+        XCTAssertEqual(SiqiWindowStateStore.usableDirectory("/tmp"), "/tmp")
+    }
+}
