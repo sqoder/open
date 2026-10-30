@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild siqi app icon with Ghostty-style metallic outer chassis and custom white-pink inner bezel."""
+"""Rebuild siqi app icon with white outer squircle chassis, white-pink inner bezel, and glowing cat screen."""
 import os
 import sys
 import subprocess
@@ -50,20 +50,33 @@ def main():
     SS = 4
     bw, bh = 1024 * SS, 1024 * SS
 
-    # 1. Outer chamfer mask (everything outside the groove, keeping Ghostty's silver chamfer + dock shadow)
+    # 1. Outer chamfer mask (everything outside groove, with Ghostty's dock shadow)
     m_chamfer = Image.new("L", (bw, bh), 255)
     d_c = ImageDraw.Draw(m_chamfer)
     d_c.rounded_rectangle([142 * SS, 140 * SS, 878 * SS, 876 * SS], radius=175 * SS, fill=0)
     m_chamfer = m_chamfer.resize((1024, 1024), Image.LANCZOS)
 
-    outer_bezel = raw_bezel.copy()
-    r, g, b, a = outer_bezel.split()
+    # Remap outermost metallic chamfer to crisp, sculpted Apple white
+    px_b = raw_bezel.load()
+    for y in range(1024):
+        for x in range(1024):
+            r, g, b, a = px_b[x, y]
+            if a > 0:
+                if r > 30:
+                    lum = (r + g + b) / 3.0
+                    new_lum = int(255 - (255 - lum) * 0.04)
+                    px_b[x, y] = (new_lum, new_lum, new_lum, a)
+                elif a == 255 and r <= 30:
+                    # soften hairline groove to delicate rose-gray
+                    px_b[x, y] = (215, 185, 195, a)
+
+    r, g, b, a = raw_bezel.split()
     na = Image.new("L", (1024, 1024))
     a_px, mc_px, na_px = a.load(), m_chamfer.load(), na.load()
     for y in range(1024):
         for x in range(1024):
             na_px[x, y] = int(a_px[x, y] * (mc_px[x, y] / 255.0))
-    outer_bezel.putalpha(na)
+    raw_bezel.putalpha(na)
 
     # 2. White-pink inner bezel mask (between outer groove and screen aperture)
     m_ib_full = Image.new("L", (bw, bh), 0)
@@ -88,7 +101,7 @@ def main():
     # 3. Soft inner rim shadow at aperture boundary (so screen looks physically seated inside the bezel)
     shadow_layer = Image.new("RGBA", (bw, bh), (0, 0, 0, 0))
     d_s = ImageDraw.Draw(shadow_layer)
-    d_s.rounded_rectangle([181 * SS, 185 * SS, 842 * SS, 842 * SS], radius=144 * SS, outline=(140, 50, 90, 160), width=3 * SS)
+    d_s.rounded_rectangle([181 * SS, 185 * SS, 842 * SS, 842 * SS], radius=144 * SS, outline=(140, 50, 90, 140), width=3 * SS)
     shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=2 * SS)).resize((1024, 1024), Image.LANCZOS)
 
     # 4. Artwork screen layer (scaled to cover aperture 666x666)
@@ -97,7 +110,7 @@ def main():
     final_icon.paste(art_fit, (179, 183))
     final_icon = Image.alpha_composite(final_icon, shadow_layer)
     final_icon = Image.alpha_composite(final_icon, ib_layer)
-    final_icon = Image.alpha_composite(final_icon, outer_bezel)
+    final_icon = Image.alpha_composite(final_icon, raw_bezel)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     slots = {
