@@ -212,14 +212,19 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
         activeProcessName != nil
     }
 
-    /// Cached process-table lookup: one walk per second shared by title and cwd fallbacks
+    /// Foreground process of this session's own pty, unlike the app-wide tree walk
+    public var foregroundPid: pid_t? { terminalView.foregroundPid }
+
+    /// Cached process lookup: one lookup per second shared by title and cwd fallbacks
     private func currentChildInfo() -> (name: String?, cwd: String?) {
         if let cached = latestProcessInfo, Date().timeIntervalSince(cached.date) < 1.0 {
             return (cached.name, cached.cwd)
         }
-        let found = DarwinProcessHelper.findLatestChildInfo()
-        latestProcessInfo = (found?.name, found?.cwd, Date())
-        return (found?.name, found?.cwd)
+        let pid = foregroundPid
+        let name = pid.flatMap { DarwinProcessHelper.getProcessName(for: $0) }
+        let cwd = pid.flatMap { DarwinProcessHelper.getCwd(for: $0) }
+        latestProcessInfo = (name, cwd, Date())
+        return (name, cwd)
     }
 
     /// Formatted tab title combining active process or formatted path (e.g. ~/Desktop/siqi)

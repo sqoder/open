@@ -251,7 +251,11 @@ public struct SiqiUserConfig: Sendable {
         }
 
         let newContent = updatedLines.joined(separator: "\n")
-        try? newContent.write(toFile: siqiPath, atomically: true, encoding: .utf8)
+        // Write back to the file we load from: a config that started life as
+        // ~/.config/ghostty/config would otherwise fork on the first edit and
+        // later edits to the original would stop taking effect.
+        let targetPath = SiqiUserConfig.load().filePath ?? siqiPath
+        try? newContent.write(toFile: targetPath, atomically: true, encoding: .utf8)
         NotificationCenter.default.post(name: .siqiConfigDidChange, object: nil)
     }
 }

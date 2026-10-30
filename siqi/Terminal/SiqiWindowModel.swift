@@ -220,7 +220,9 @@ public final class SiqiTab: ObservableObject, Identifiable {
             paneVersion += 1
             return true
         }
-        return false
+        // Already closed elsewhere (e.g. the shell exited while ⌘W ran): report
+        // what is left instead of letting callers close the whole tab.
+        return !rootPane.allSessions.isEmpty
     }
 
     public func updateSplitFraction(splitId: UUID, fraction: CGFloat) {

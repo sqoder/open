@@ -53,7 +53,10 @@ public enum TerminalActionBridge {
                 if proc.contains(kw) { return true }
             }
         }
-        if DarwinProcessHelper.hasDescendantProcess(matching: aiToolKeywords) {
+        // Scope the process tree to this session's pty; the app-wide walk made
+        // every tab take the AI branch as soon as one tab ran an AI CLI.
+        if let pid = session.foregroundPid,
+           DarwinProcessHelper.hasDescendantProcess(for: pid, matching: aiToolKeywords) {
             return true
         }
         return false
