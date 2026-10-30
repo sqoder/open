@@ -49,10 +49,17 @@ def load_artwork():
     return im.crop((x0 + CROP, y0 + CROP, x1 - CROP, y1 - CROP))
 
 def compute_dist_map(raw_bezel):
-    """Compute exact Euclidean distance transform (Meijster's algorithm)."""
+    """Compute exact Euclidean distance transform for the solid squircle tile (Meijster's algorithm)."""
     px = raw_bezel.load()
     w, h = 1024, 1024
-    grid = [[1 if px[x, y][3] >= 128 else 0 for x in range(w)] for y in range(h)]
+    grid = [[0]*w for _ in range(h)]
+    for y in range(h):
+        row_xs = [x for x in range(w) if px[x, y][3] >= 128]
+        if row_xs:
+            x_start, x_end = min(row_xs), max(row_xs)
+            for x in range(x_start, x_end + 1):
+                grid[y][x] = 1
+
     INF = 1000000000
     dt1 = [[0]*w for _ in range(h)]
 
@@ -73,7 +80,6 @@ def compute_dist_map(raw_bezel):
     data = bytearray(w * h * 2)
     s = [0]*w
     t = [0]*w
-    idx = 0
 
     for y in range(h):
         q = 0
