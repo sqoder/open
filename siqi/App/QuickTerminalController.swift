@@ -21,6 +21,7 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
     public private(set) var model: SiqiWindowModel?
     @Published public private(set) var isVisible: Bool = false
     private var isHiding = false
+    private var animationGeneration = 0
 
     private override init() {
         super.init()
@@ -41,7 +42,7 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
                 self.toggle()
                 return nil
             }
-            if self.isVisible, let panel = self.panel, let model = self.model, (panel.isKeyWindow || event.window === panel) {
+            if self.isVisible, !self.isHiding, let panel = self.panel, let model = self.model, (panel.isKeyWindow || event.window === panel) {
                 return TerminalActionBridge.dispatchKeyEvent(
                     event: event,
                     window: panel,
@@ -78,7 +79,9 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
     }
 
     public func toggle() {
-        if isVisible {
+        if isHiding {
+            show()
+        } else if isVisible {
             hide()
         } else {
             show()
@@ -162,6 +165,7 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
     }
 
     public func show() {
+        isHiding = false
         let (userConfig, _) = SiqiUserConfig.load()
         guard let screen = screenForConfig(userConfig) else { return }
         let targetFrame = targetFrame(for: screen, config: userConfig)
@@ -228,12 +232,15 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
             panel.setFrame(targetFrame, display: true)
             return
         }
+        animationGeneration += 1
+        let generation = animationGeneration
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = duration
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().setFrame(targetFrame, display: true)
         } completionHandler: { [weak self] in
-            self?.isVisible = true
+            guard let self, self.animationGeneration == generation else { return }
+            self.isVisible = true
         }
     }
 
@@ -248,6 +255,8 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
         )
 
         isHiding = true
+        animationGeneration += 1
+        let generation = animationGeneration
         let duration = userConfig.quickTerminalAnimationDuration
         if duration <= 0 {
             isVisible = false
@@ -260,8 +269,11 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().setFrame(targetFrame, display: true)
         } completionHandler: { [weak self] in
-            self?.isVisible = false
-            self?.isHiding = false
+            // A show() during this animation bumps the generation; that stale
+            // completion must not order the panel out again.
+            guard let self, self.animationGeneration == generation else { return }
+            self.isVisible = false
+            self.isHiding = false
             panel.orderOut(nil)
         }
     }

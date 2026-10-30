@@ -77,7 +77,7 @@ public enum TerminalActionBridge {
         // 2. Image file URLs (e.g. screenshots saved to disk like Glint, CleanShot, Finder copied images)
         if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
             let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "tiff", "svg"]
-            if urls.allSatisfy({ imageExtensions.contains($0.pathExtension.lowercased()) }) {
+            if urls.contains(where: { imageExtensions.contains($0.pathExtension.lowercased()) }) {
                 return true
             }
         }
@@ -86,7 +86,7 @@ public enum TerminalActionBridge {
 
     /// Extracts PNG data from the system clipboard
     public static func getPasteboardImageData(_ pb: NSPasteboard) -> Data? {
-        if let data = pb.data(forType: .png) {
+        if let data = pb.data(forType: .png), !data.isEmpty, NSBitmapImageRep(data: data) != nil {
             return data
         }
         if let data = pb.data(forType: .tiff),

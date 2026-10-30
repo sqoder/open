@@ -238,8 +238,9 @@ public struct SiqiUserConfig: Sendable {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if !trimmed.isEmpty && !trimmed.hasPrefix("#") {
                 let parts = trimmed.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-                if parts.count == 2, let newVal = remainingUpdates.removeValue(forKey: parts[0]) {
+                if parts.count == 2, let newVal = updates[parts[0]] {
                     updatedLines.append("\(parts[0]) = \(newVal)")
+                    remainingUpdates.removeValue(forKey: parts[0])
                     continue
                 }
             }
@@ -255,7 +256,11 @@ public struct SiqiUserConfig: Sendable {
         // ~/.config/ghostty/config would otherwise fork on the first edit and
         // later edits to the original would stop taking effect.
         let targetPath = SiqiUserConfig.load().filePath ?? siqiPath
-        try? newContent.write(toFile: targetPath, atomically: true, encoding: .utf8)
+        do {
+            try newContent.write(toFile: targetPath, atomically: true, encoding: .utf8)
+        } catch {
+            NSLog("Failed to write config to %@: %@", targetPath, error.localizedDescription)
+        }
         NotificationCenter.default.post(name: .siqiConfigDidChange, object: nil)
     }
 }

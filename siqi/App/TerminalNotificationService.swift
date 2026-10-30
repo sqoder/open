@@ -27,8 +27,10 @@ public enum TerminalNotificationService {
         } else if !requested {
             requested = true
             center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
-                authorized = granted
-                if granted { deliver() }
+                Task { @MainActor in
+                    authorized = granted
+                    if granted { deliver() }
+                }
             }
         }
     }

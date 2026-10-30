@@ -119,9 +119,7 @@ public final class TerminalContextMenuBridge: NSObject {
     }
 
     private var targetModel: SiqiWindowModel? {
-        guard let view = currentTerminalView else {
-            return SiqiWindowManager.shared.activeWindowController?.model
-        }
+        guard let view = currentTerminalView else { return nil }
         if let window = view.window {
             if window is QuickTerminalPanel {
                 return QuickTerminalController.shared.model
@@ -130,7 +128,7 @@ public final class TerminalContextMenuBridge: NSObject {
                 return wc.model
             }
         }
-        return SiqiWindowManager.shared.activeWindowController?.model
+        return nil
     }
 
     private var targetWindow: NSWindow? {
@@ -208,9 +206,10 @@ extension AppTerminalView {
                     let model: SiqiWindowModel? = {
                         if window is QuickTerminalPanel { return QuickTerminalController.shared.model }
                         if let wc = window.windowController as? TerminalWindowController { return wc.model }
-                        return SiqiWindowManager.shared.activeWindowController?.model
+                        return nil
                     }()
-                    if let model, let session = model.tabs.flatMap({ $0.allSessions }).first(where: { $0.terminalView === view }) {
+                    guard let model else { return }
+                    if let session = model.tabs.flatMap({ $0.allSessions }).first(where: { $0.terminalView === view }) {
                         if model.activeSessionId != session.id {
                             model.activeSessionId = session.id
                         }
@@ -265,7 +264,16 @@ extension AppTerminalView {
         // 2. Swizzle menu(for:)
         if let menuMethod = class_getInstanceMethod(AppTerminalView.self, #selector(NSView.menu(for:))) {
             let menuBlock: @convention(block) (AnyObject, NSEvent) -> NSMenu? = { target, event in
-                guard let view = target as? AppTerminalView else { return nil }
+                guard let view = target as? AppTerminalView,
+                      let window = view.window else { return nil }
+                let model: SiqiWindowModel? = {
+                    if window is QuickTerminalPanel { return QuickTerminalController.shared.model }
+                    if let wc = window.windowController as? TerminalWindowController { return wc.model }
+                    return nil
+                }()
+                guard let model,
+                      let session = model.tabs.flatMap({ $0.allSessions }).first(where: { $0.terminalView === view }),
+                      !session.hasActiveProcess else { return nil }
                 return TerminalContextMenuBridge.shared.buildMenu(for: view)
             }
             let swizzledIMP = imp_implementationWithBlock(menuBlock)

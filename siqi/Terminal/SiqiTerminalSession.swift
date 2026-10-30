@@ -296,6 +296,7 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
 
     public func restart() {
         let currentCwd = state.workingDirectory ?? initialWorkingDirectory
+        state.onClose = nil
         self.state = Self.buildTerminalViewState(workingDirectory: currentCwd)
         terminalView.delegate = state
         terminalView.controller = state.controller

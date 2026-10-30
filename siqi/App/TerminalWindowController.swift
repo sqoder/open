@@ -449,6 +449,10 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
             NSEvent.removeMonitor(eventMonitor)
             self.eventMonitor = nil
         }
+        if let occlusionObserver {
+            NotificationCenter.default.removeObserver(occlusionObserver)
+            self.occlusionObserver = nil
+        }
         SiqiWindowManager.shared.removeWindow(self)
         model.tearDownAllSessions()
     }
