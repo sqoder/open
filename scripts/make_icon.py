@@ -16,6 +16,7 @@ OUT_DIR = "siqi/Resources/Assets.xcassets/AppIcon.appiconset"
 S = 1024                 # master size
 CORNER = 224             # macOS squircle-ish outer radius
 BORDER = 64              # uniform white border thickness (tuned between 48 and 80)
+INNER_CORNER = 220        # optical inner corner radius to keep corner border visually even with edges
 SS = 4                   # supersample factor for smooth edges
 CROP = 62                # crop past corner depth to remove corner haze
 
@@ -57,7 +58,7 @@ def main():
     # artwork clipped to the inner rounded square
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     layer.paste(art_fit, (BORDER, BORDER))
-    layer.putalpha(rounded_mask(S, CORNER - BORDER, BORDER))
+    layer.putalpha(rounded_mask(S, INNER_CORNER, BORDER))
     base = Image.alpha_composite(base, layer)
 
     slots = {
