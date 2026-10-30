@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Rebuild siqi app icon with authentic Ghostty-style retro terminal hardware bezel."""
+"""Rebuild siqi app icon with Ghostty-style metallic outer chassis and custom white-pink inner bezel."""
 import os
 import sys
 import subprocess
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPT_DIR)
@@ -45,17 +45,59 @@ def main():
         sys.exit(f"Error: bezel reference not found at {BEZEL_PATH}")
 
     art = load_artwork()
-    bezel = Image.open(BEZEL_PATH).convert("RGBA")
+    raw_bezel = Image.open(BEZEL_PATH).convert("RGBA")
 
-    # Fit artwork to aperture bounds (666x666 covers [179..845])
+    SS = 4
+    bw, bh = 1024 * SS, 1024 * SS
+
+    # 1. Outer chamfer mask (everything outside the groove, keeping Ghostty's silver chamfer + dock shadow)
+    m_chamfer = Image.new("L", (bw, bh), 255)
+    d_c = ImageDraw.Draw(m_chamfer)
+    d_c.rounded_rectangle([142 * SS, 140 * SS, 878 * SS, 876 * SS], radius=175 * SS, fill=0)
+    m_chamfer = m_chamfer.resize((1024, 1024), Image.LANCZOS)
+
+    outer_bezel = raw_bezel.copy()
+    r, g, b, a = outer_bezel.split()
+    na = Image.new("L", (1024, 1024))
+    a_px, mc_px, na_px = a.load(), m_chamfer.load(), na.load()
+    for y in range(1024):
+        for x in range(1024):
+            na_px[x, y] = int(a_px[x, y] * (mc_px[x, y] / 255.0))
+    outer_bezel.putalpha(na)
+
+    # 2. White-pink inner bezel mask (between outer groove and screen aperture)
+    m_ib_full = Image.new("L", (bw, bh), 0)
+    d_ib = ImageDraw.Draw(m_ib_full)
+    d_ib.rounded_rectangle([142 * SS, 140 * SS, 878 * SS, 876 * SS], radius=175 * SS, fill=255)
+    d_ib.rounded_rectangle([181 * SS, 185 * SS, 842 * SS, 842 * SS], radius=144 * SS, fill=0)
+    m_ib = m_ib_full.resize((1024, 1024), Image.LANCZOS)
+
+    # White-pink gradient fill with gentle top-down lighting
+    c_top = (255, 246, 250)   # soft glowing pearl white-pink
+    c_bot = (248, 218, 232)   # delicate pastel rose-pink
+    ib_layer = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+    ib_draw = ImageDraw.Draw(ib_layer)
+    for y in range(140, 877):
+        t = (y - 140) / (876 - 140)
+        cr = int(c_top[0] * (1 - t) + c_bot[0] * t)
+        cg = int(c_top[1] * (1 - t) + c_bot[1] * t)
+        cb = int(c_top[2] * (1 - t) + c_bot[2] * t)
+        ib_draw.line([(140, y), (880, y)], fill=(cr, cg, cb, 255))
+    ib_layer.putalpha(m_ib)
+
+    # 3. Soft inner rim shadow at aperture boundary (so screen looks physically seated inside the bezel)
+    shadow_layer = Image.new("RGBA", (bw, bh), (0, 0, 0, 0))
+    d_s = ImageDraw.Draw(shadow_layer)
+    d_s.rounded_rectangle([181 * SS, 185 * SS, 842 * SS, 842 * SS], radius=144 * SS, outline=(140, 50, 90, 160), width=3 * SS)
+    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=2 * SS)).resize((1024, 1024), Image.LANCZOS)
+
+    # 4. Artwork screen layer (scaled to cover aperture 666x666)
     art_fit = art.resize((666, 666), Image.LANCZOS)
-
-    # Base canvas with artwork positioned in the CRT aperture
-    comp = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
-    comp.paste(art_fit, (179, 183))
-
-    # Alpha composite the authentic metallic monitor bezel overlay
-    final_icon = Image.alpha_composite(comp, bezel)
+    final_icon = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+    final_icon.paste(art_fit, (179, 183))
+    final_icon = Image.alpha_composite(final_icon, shadow_layer)
+    final_icon = Image.alpha_composite(final_icon, ib_layer)
+    final_icon = Image.alpha_composite(final_icon, outer_bezel)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     slots = {
