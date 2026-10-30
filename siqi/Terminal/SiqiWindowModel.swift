@@ -160,11 +160,13 @@ public final class SiqiTab: ObservableObject, Identifiable {
     @Published public var isZoomed: Bool = false
     /// Monotonically increasing counter — forces SwiftUI to see pane tree mutations
     @Published public var paneVersion: Int = 0
+    private var sessionObservers: [UUID: AnyCancellable] = [:]
 
     public init(session: SiqiTerminalSession) {
         self.id = UUID()
         self.rootPane = .terminal(session)
         self.activeSessionId = session.id
+        observeSession(session)
     }
 
     public var title: String {
@@ -203,6 +205,21 @@ public final class SiqiTab: ObservableObject, Identifiable {
         activeSessionId = newSession.id
         isZoomed = false
         paneVersion += 1
+        observeSession(newSession)
+    }
+
+    /// Forwards session changes so the tab bar sees title and process updates (F-07).
+    private func observeSession(_ session: SiqiTerminalSession) {
+        guard sessionObservers[session.id] == nil else { return }
+        sessionObservers[session.id] = session.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+    }
+
+    public func observeAllSessions() {
+        for session in allSessions {
+            observeSession(session)
+        }
     }
 
     public func closeSession(id: UUID) -> Bool {
@@ -704,6 +721,7 @@ public final class SiqiWindowModel: ObservableObject {
         for session in tab.allSessions {
             attachSessionCallbacks(session)
         }
+        tab.observeAllSessions()
         tabs.insert(tab, at: targetIndex)
         activeTabId = tab.id
         focusActiveSession()

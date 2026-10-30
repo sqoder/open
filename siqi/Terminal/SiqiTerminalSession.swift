@@ -34,6 +34,7 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
     private var cwdMonitorTimer: Timer?
     private var latestProcessInfo: (name: String?, cwd: String?, date: Date)?
     private var lastKnownDirectory: String = ""
+    private var lastKnownProcessName: String?
 
     public nonisolated static func == (lhs: SiqiTerminalSession, rhs: SiqiTerminalSession) -> Bool {
         lhs.id == rhs.id
@@ -146,6 +147,7 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
                 SiqiDirectoryManager.saveLastWorkingDirectory(current)
                 self.objectWillChange.send()
             }
+            lastKnownProcessName = processName(fresh: true)
         }
         guard cwdMonitorTimer == nil else { return }
         isCwdMonitorActive = true
@@ -156,6 +158,13 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
                 if current != self.lastKnownDirectory {
                     self.lastKnownDirectory = current
                     SiqiDirectoryManager.saveLastWorkingDirectory(current)
+                    self.objectWillChange.send()
+                }
+                // The shell integration is optional, so title changes alone never
+                // signal a new foreground process; poll it for the tab bar (F-07).
+                let proc = self.processName(fresh: true)
+                if proc != self.lastKnownProcessName {
+                    self.lastKnownProcessName = proc
                     self.objectWillChange.send()
                 }
             }
