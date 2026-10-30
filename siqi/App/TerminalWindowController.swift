@@ -191,8 +191,11 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         let (userConfig, _) = SiqiUserConfig.load()
         let isTranslucent = userConfig.backgroundOpacity < 1.0 || userConfig.backgroundBlur > 0
 
-        // Parse initial window size from window-width / window-height config
+        // Parse initial window size from preferred size, or window-width / window-height config
         let initialWidth: CGFloat = {
+            if let preferred = SiqiWindowManager.shared.preferredWindowSize {
+                return preferred.width
+            }
             let font = NSFont(name: userConfig.fontFamily, size: userConfig.fontSize)
                 ?? NSFont.monospacedSystemFont(ofSize: userConfig.fontSize, weight: .regular)
             let cellWidth = font.maximumAdvancement.width > 0 ? font.maximumAdvancement.width : (userConfig.fontSize * 0.60)
@@ -203,6 +206,9 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
             return 100 * cellWidth + padding // Default 100 columns
         }()
         let initialHeight: CGFloat = {
+            if let preferred = SiqiWindowManager.shared.preferredWindowSize {
+                return preferred.height
+            }
             let font = NSFont(name: userConfig.fontFamily, size: userConfig.fontSize)
                 ?? NSFont.monospacedSystemFont(ofSize: userConfig.fontSize, weight: .regular)
             let cellHeight = ceil(font.ascender - font.descender + font.leading) + CGFloat(userConfig.adjustCellHeight)
@@ -363,18 +369,15 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
 
     public func saveWindowFrameIfNeeded() {
         guard let window = self.window else { return }
-        // Prevent secondary cascaded windows from overwriting the main window autosave geometry
-        guard SiqiWindowManager.shared.windowControllers.first === self || SiqiWindowManager.shared.windowControllers.count <= 1 else {
-            return
-        }
         let (userConfig, _) = SiqiUserConfig.load()
-        if userConfig.windowSaveState.lowercased() != "never" {
-            if window.frame.width < 140 || window.frame.height < 60 {
-                var f = window.frame
-                f.size = NSSize(width: 80, height: 32)
-                window.setFrame(f, display: false)
+        guard userConfig.windowSaveState.lowercased() != "never" else { return }
+
+        if window.frame.width >= 140 && window.frame.height >= 60 {
+            SiqiWindowManager.shared.updateLastWindowFrame(window.frame)
+            if SiqiWindowManager.shared.windowControllers.first === self || SiqiWindowManager.shared.windowControllers.count <= 1 {
+                window.saveFrame(usingName: "SiqiTerminalWindow")
             }
-            window.saveFrame(usingName: "SiqiTerminalWindow")
+            SiqiWindowManager.shared.scheduleSaveWindowState()
         }
     }
 
@@ -476,6 +479,11 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
     public func windowDidResize(_ notification: Notification) {
         saveWindowFrameIfNeeded()
         (window as? SiqiTerminalWindow)?.adjustTrafficLights()
+    }
+
+    public func windowDidEndLiveResize(_ notification: Notification) {
+        saveWindowFrameIfNeeded()
+        SiqiWindowManager.shared.saveWindowState()
     }
 
     public func windowDidMove(_ notification: Notification) {
