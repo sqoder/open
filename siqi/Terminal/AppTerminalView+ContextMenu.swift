@@ -195,6 +195,7 @@ public final class TerminalContextMenuBridge: NSObject {
 
 extension AppTerminalView {
     private static var originalMouseDownIMP: IMP?
+    private static var originalRightMouseDownIMP: IMP?
 
     /// Enables native terminal context menu pipeline and focus tracking
     public static let enableContextMenuPipeline: Void = {
@@ -227,6 +228,7 @@ extension AppTerminalView {
 
         // 1. Swizzle rightMouseDown: focus tracking and context menu presentation
         if let originalMethod = class_getInstanceMethod(AppTerminalView.self, #selector(NSResponder.rightMouseDown(with:))) {
+            originalRightMouseDownIMP = method_getImplementation(originalMethod)
             let block: @convention(block) (AnyObject, NSEvent) -> Void = { target, event in
                 guard let view = target as? AppTerminalView else { return }
                 view.window?.makeFirstResponder(view)
@@ -241,12 +243,18 @@ extension AppTerminalView {
                         if model.activeSessionId != session.id {
                             model.activeSessionId = session.id
                         }
+                        // A program owns the pty (herdr, vim, ...): hand the click
+                        // to it so its own popup shows, not ours.
+                        if session.hasActiveProcess {
+                            if let originalIMP = AppTerminalView.originalRightMouseDownIMP {
+                                typealias Fn = @convention(c) (AnyObject, Selector, NSEvent) -> Void
+                                unsafeBitCast(originalIMP, to: Fn.self)(view, #selector(NSResponder.rightMouseDown(with:)), event)
+                            }
+                            return
+                        }
                     }
                 }
 
-                // Do NOT forward the press to the pty: a TUI that handles mouse
-                // events (herdr and friends) would draw its own popup under our
-                // native menu. One right-click, one menu.
                 let menu = TerminalContextMenuBridge.shared.buildMenu(for: view)
                 NSMenu.popUpContextMenu(menu, with: event, for: view)
             }
