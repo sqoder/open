@@ -195,6 +195,14 @@ extension AppTerminalView {
     private static var originalMouseDownIMP: IMP?
     private static var originalRightMouseDownIMP: IMP?
 
+    /// libghostty's keybind table claims ⌘, (open_config) before the menu, which
+    /// leaves Settings unreachable from the keyboard (F-02).
+    public static func shouldYieldToMenu(_ event: NSEvent) -> Bool {
+        event.type == .keyDown
+            && event.modifierFlags.intersection([.command, .control, .option, .shift]) == .command
+            && event.charactersIgnoringModifiers == ","
+    }
+
     /// Enables native terminal context menu pipeline and focus tracking
     public static let enableContextMenuPipeline: Void = {
         // 0. Swizzle mouseDown: focus tracking for multi-pane split setups
@@ -281,6 +289,19 @@ extension AppTerminalView {
             }
             let swizzledIMP = imp_implementationWithBlock(menuBlock)
             method_setImplementation(menuMethod, swizzledIMP)
+        }
+
+        // 3. Swizzle performKeyEquivalent: let ⌘, fall through to the menu (F-02)
+        if let keyEquivalentMethod = class_getInstanceMethod(AppTerminalView.self, #selector(NSResponder.performKeyEquivalent(with:))) {
+            let originalKeyEquivalentIMP = method_getImplementation(keyEquivalentMethod)
+            let block: @convention(block) (AnyObject, NSEvent) -> Bool = { target, event in
+                if AppTerminalView.shouldYieldToMenu(event) { return false }
+                typealias Fn = @convention(c) (AnyObject, Selector, NSEvent) -> Bool
+                return unsafeBitCast(originalKeyEquivalentIMP, to: Fn.self)(
+                    target, #selector(NSResponder.performKeyEquivalent(with:)), event
+                )
+            }
+            method_setImplementation(keyEquivalentMethod, imp_implementationWithBlock(block))
         }
     }()
 }

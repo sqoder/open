@@ -202,7 +202,6 @@ struct SiqiApp: App {
                 Button("Settings...") {
                     SiqiWindowManager.shared.openSettingsWindow()
                 }
-                .keyboardShortcut(",", modifiers: .command)
 
                 Button("Open Configuration File") {
                     let siqiPath = NSString(string: "~/.config/siqi/config").expandingTildeInPath

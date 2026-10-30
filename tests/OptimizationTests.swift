@@ -1,4 +1,5 @@
 import XCTest
+import GhosttyTerminal
 @testable import siqi
 
 @MainActor
@@ -111,5 +112,32 @@ final class WindowStatePersistenceTests: XCTestCase {
         ])
         let data = try JSONEncoder().encode(state)
         XCTAssertEqual(try JSONDecoder().decode(SiqiPersistedState.self, from: data), state)
+    }
+}
+
+@MainActor
+final class KeyEquivalentPolicyTests: XCTestCase {
+    func testYieldsCommandCommaToMenu() {
+        XCTAssertTrue(AppTerminalView.shouldYieldToMenu(makeEvent("comma", modifiers: .command)))
+    }
+
+    func testKeepsPlainCommandLettersForTheTerminal() {
+        XCTAssertFalse(AppTerminalView.shouldYieldToMenu(makeEvent("t", modifiers: .command)))
+        XCTAssertFalse(AppTerminalView.shouldYieldToMenu(makeEvent("comma", modifiers: [.command, .shift])))
+    }
+
+    private func makeEvent(_ key: String, modifiers: NSEvent.ModifierFlags) -> NSEvent {
+        NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: 1,
+            windowNumber: 0,
+            context: nil,
+            characters: key == "comma" ? "," : key,
+            charactersIgnoringModifiers: key == "comma" ? "," : key,
+            isARepeat: false,
+            keyCode: 0
+        )!
     }
 }
