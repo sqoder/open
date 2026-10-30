@@ -87,10 +87,43 @@ func claudeModelDisplayName(for raw: String) -> String {
 
 func qoderModelDisplayName(for raw: String) -> String {
     let clean = sanitizeModelName(raw)
-    switch clean {
+    guard !clean.isEmpty else { return "未知模型" }
+
+    let id = clean.hasPrefix("magpie/") ? String(clean.dropFirst("magpie/".count)) : clean
+    let dynamicTextsURL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".qoder/.auth/dynamic-texts.json")
+
+    if let data = try? Data(contentsOf: dynamicTextsURL),
+       let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+       let locales = json["locales"] as? [String: Any] {
+        let localeDict = (locales["zh"] as? [String: Any]) ?? (locales["en"] as? [String: Any]) ?? [:]
+        if let name = localeDict["modelSelector.item.\(id)"] as? String, !name.isEmpty {
+            return sanitizeModelName(name)
+        }
+    }
+
+    switch id {
     case "dfmodel": return "DeepSeek-Flash"
+    case "dmodel": return "DeepSeek-V4-Pro"
+    case "kmodel": return "Kimi-K2.8-Preview"
+    case "kmodel_latest": return "Kimi-K3.1-Pro"
     case "qfmodel": return "Qwen3.8-Flash"
-    default: return clean.isEmpty ? "未知模型" : clean
+    case "qmodel": return "Qwen3.7-Plus"
+    case "qmodel_latest": return "Qwen3.7-Max"
+    case "qmodel_preview": return "Qwen3.8-Max-Preview"
+    case "qmodel_38max": return "Qwen3.8-Max"
+    case "q35model": return "Qwen3.5-Plus"
+    case "gfmodel": return "GLM-5.3-Flash"
+    case "gmodel": return "GLM-5.3"
+    case "gm51model": return "GLM-5.2"
+    case "mmodel": return "MiniMax-M3.1-Flash"
+    case "cmodel": return "Cantus"
+    case "smodel": return "Sonus"
+    case "kimi-work/k3d1-agent", "k3d1-agent": return "Kimi-K3.1-Agent"
+    case "qwenwork/qwen3.8-max-preview": return "Qwen3.8-Max-Preview"
+    default:
+        let tail = clean.split(separator: "/").last.map(String.init) ?? clean
+        return sanitizeModelName(tail)
     }
 }
 
@@ -2549,7 +2582,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let offset = fileSize > maxBytes ? fileSize - maxBytes : 0
         handle.seek(toFileOffset: offset)
         let data = handle.readDataToEndOfFile()
-        return String(data: data, encoding: .utf8)
+        guard !data.isEmpty else { return "" }
+        return String(decoding: data, as: UTF8.self)
     }
     
     func updateSessionTokens(url: URL, instance: inout MonitoredInstance) {
@@ -2644,7 +2678,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         
-        guard let str = String(data: processData, encoding: .utf8) else { return }
+        let str = String(decoding: processData, as: UTF8.self)
+        guard !str.isEmpty else { return }
         let lines = str.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         
         var generatingState: Bool?
@@ -2657,14 +2692,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 generatingState = true
             }
             
-            if type == "runtime-config", let m = json["model"] as? String {
-                instance.modelName = m == "dfmodel" ? "DeepSeek-Flash" : sanitizeModelName(m)
+            if type == "runtime-config", let m = json["model"] as? String, !m.isEmpty {
+                instance.modelName = qoderModelDisplayName(for: m)
             }
             
             if type == "assistant" {
                 let msg = json["message"] as? [String: Any]
-                if let m = msg?["model"] as? String, m != "dfmodel" && !m.isEmpty {
-                    instance.modelName = sanitizeModelName(m)
+                if let m = msg?["model"] as? String, !m.isEmpty, m != "<synthetic>" {
+                    instance.modelName = qoderModelDisplayName(for: m)
                 }
                 
                 // Only a completed final answer ends the run; tool calls and
@@ -2713,10 +2748,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         
-        guard let str = String(data: processData, encoding: .utf8) else { return }
+        let str = String(decoding: processData, as: UTF8.self)
+        guard !str.isEmpty else { return }
         let lines = str.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         
         var lastRole: String?
+        var lastStopReason: String?
         for line in lines {
             guard let d = line.data(using: .utf8),
                   let json = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { continue }
@@ -2735,6 +2772,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let role = (msg["role"] as? String) ?? ""
             if role == "user" || role == "assistant" || role == "toolResult" {
                 lastRole = role
+                lastStopReason = (msg["stopReason"] as? String) ?? (json["stopReason"] as? String)
             }
             
             guard role == "assistant" else { continue }
@@ -2751,10 +2789,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         
-        // Pi appends an assistant message only once it is complete; a trailing
-        // user/toolResult event means the next model request is in flight.
+        // Pi appends an assistant message with stopReason == "toolUse" when it invokes
+        // tools; during tool execution the agent is still actively working.
         if let lastRole = lastRole {
-            instance.isGenerating = (lastRole == "user" || lastRole == "toolResult")
+            if lastRole == "user" || lastRole == "toolResult" {
+                instance.isGenerating = true
+            } else if lastRole == "assistant" {
+                instance.isGenerating = (lastStopReason == "toolUse")
+            } else {
+                instance.isGenerating = false
+            }
         }
     }
     
@@ -3100,7 +3144,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         updatedInstances[i].claudeRequestStartedAt = nil
                         updatedInstances[i].codexTaskStartedAt = nil
                         updatedInstances[i].codexLastTokenAt = nil
-                        if updatedInstances[i].type == .pi {
+                        if updatedInstances[i].type == .qoder {
+                            updatedInstances[i].modelName = "Qoder"
+                        } else if updatedInstances[i].type == .pi {
                             updatedInstances[i].modelName = "Pi"
                         } else if updatedInstances[i].type == .claude {
                             updatedInstances[i].modelName = "Claude"

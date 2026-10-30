@@ -1,4 +1,4 @@
-# 🌊 momi · AI 实时测速仪 (v1.5.2)
+# 🌊 momi · AI 实时测速仪 (v1.5.4)
 
 <p align="center">
   <img src="resources/icon.jpg" width="160" height="160" style="border-radius: 24px;" alt="momi Icon" />
