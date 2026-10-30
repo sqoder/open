@@ -94,3 +94,22 @@ final class SiqiTabCloseTests: XCTestCase {
         XCTAssertTrue(tab.closeSession(id: UUID()))
     }
 }
+
+final class WindowStatePersistenceTests: XCTestCase {
+    func testPersistedStateSurvivesJSONRoundTrip() throws {
+        let leaf = SiqiPersistedPane.leaf(cwd: "/tmp")
+        let state = SiqiPersistedState(windows: [
+            SiqiPersistedWindow(
+                frame: [10, 20, 800, 500],
+                activeTabIndex: 1,
+                tabs: [
+                    SiqiPersistedTab(activePaneIndex: 0, root: leaf),
+                    SiqiPersistedTab(activePaneIndex: 1, root: .split(
+                        axis: "horizontal", fraction: 0.5, first: leaf,
+                        second: .leaf(cwd: "/Users")))
+                ])
+        ])
+        let data = try JSONEncoder().encode(state)
+        XCTAssertEqual(try JSONDecoder().decode(SiqiPersistedState.self, from: data), state)
+    }
+}

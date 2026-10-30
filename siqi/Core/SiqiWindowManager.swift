@@ -211,4 +211,138 @@ public final class SiqiWindowManager: ObservableObject {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    // MARK: - Window / Tab / Pane Restore (F-08)
+
+    /// Snapshots every window's tabs and split tree; skipped when window-save-state=never
+    public func saveWindowState() {
+        let (cfg, _) = SiqiUserConfig.load()
+        guard cfg.windowSaveState.lowercased() != "never" else { return }
+
+        let windows: [SiqiPersistedWindow] = windowControllers.compactMap { controller in
+            guard let window = controller.window else { return nil }
+            let model = controller.model
+            guard !model.tabs.isEmpty else { return nil }
+            let tabs = model.tabs.map { tab -> SiqiPersistedTab in
+                let sessions = tab.allSessions
+                let activeIndex = sessions.firstIndex { $0.id == tab.activeSessionId } ?? 0
+                return SiqiPersistedTab(activePaneIndex: activeIndex, root: SiqiPersistedPane(node: tab.rootPane))
+            }
+            let activeTabIndex = model.tabs.firstIndex { $0.id == model.activeTabId } ?? 0
+            let frame = window.frame
+            return SiqiPersistedWindow(
+                frame: [frame.minX, frame.minY, frame.width, frame.height],
+                activeTabIndex: activeTabIndex,
+                tabs: tabs
+            )
+        }
+        guard !windows.isEmpty else { return }
+        SiqiWindowStateStore.save(SiqiPersistedState(windows: windows))
+    }
+
+    /// Rebuilds the saved windows; returns false when there is nothing to restore
+    @discardableResult
+    public func restoreWindowsFromState() -> Bool {
+        let (cfg, _) = SiqiUserConfig.load()
+        guard cfg.windowSaveState.lowercased() != "never",
+              let state = SiqiWindowStateStore.load(),
+              !state.windows.isEmpty else { return false }
+
+        for persisted in state.windows {
+            let tabs = persisted.tabs.map { persistedTab -> SiqiTab in
+                let root = persistedTab.root.buildNode()
+                let sessions = root.allSessions
+                let activeId = sessions.indices.contains(persistedTab.activePaneIndex)
+                    ? sessions[persistedTab.activePaneIndex].id
+                    : (sessions.first?.id ?? UUID())
+                return SiqiTab(rootPane: root, activeSessionId: activeId)
+            }
+            guard !tabs.isEmpty else { continue }
+            let activeTabId = tabs.indices.contains(persisted.activeTabIndex)
+                ? tabs[persisted.activeTabIndex].id
+                : tabs.first?.id
+            let model = SiqiWindowModel(tabs: tabs, activeTabId: activeTabId)
+            let controller = TerminalWindowController(model: model)
+            if persisted.frame.count == 4, let window = controller.window {
+                window.setFrame(
+                    NSRect(x: persisted.frame[0], y: persisted.frame[1],
+                           width: persisted.frame[2], height: persisted.frame[3]),
+                    display: false
+                )
+            }
+            windowControllers.append(controller)
+            controller.showWindow()
+        }
+        return !windowControllers.isEmpty
+    }
+}
+
+// MARK: - Persisted Window State
+
+public indirect enum SiqiPersistedPane: Codable, Equatable {
+    case leaf(cwd: String)
+    case split(axis: String, fraction: Double, first: SiqiPersistedPane, second: SiqiPersistedPane)
+}
+
+public struct SiqiPersistedTab: Codable, Equatable {
+    public var activePaneIndex: Int
+    public var root: SiqiPersistedPane
+}
+
+public struct SiqiPersistedWindow: Codable, Equatable {
+    public var frame: [Double]
+    public var activeTabIndex: Int
+    public var tabs: [SiqiPersistedTab]
+}
+
+public struct SiqiPersistedState: Codable, Equatable {
+    public var windows: [SiqiPersistedWindow]
+}
+
+public enum SiqiWindowStateStore {
+    public static let filePath = NSString(string: "~/.cache/siqi/window-state.json").expandingTildeInPath
+
+    public static func save(_ state: SiqiPersistedState) {
+        guard let data = try? JSONEncoder().encode(state) else { return }
+        let dir = (filePath as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try? data.write(to: URL(fileURLWithPath: filePath), options: .atomic)
+    }
+
+    public static func load() -> SiqiPersistedState? {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else { return nil }
+        return try? JSONDecoder().decode(SiqiPersistedState.self, from: data)
+    }
+}
+
+@MainActor
+extension SiqiPersistedPane {
+    init(node: PaneNode) {
+        switch node {
+        case .terminal(let session):
+            self = .leaf(cwd: session.fullDirectory)
+        case .split(_, let axis, let fraction, let first, let second):
+            self = .split(
+                axis: axis == .horizontal ? "horizontal" : "vertical",
+                fraction: Double(fraction),
+                first: SiqiPersistedPane(node: first),
+                second: SiqiPersistedPane(node: second)
+            )
+        }
+    }
+
+    func buildNode() -> PaneNode {
+        switch self {
+        case .leaf(let cwd):
+            return .terminal(SiqiTerminalSession(workingDirectory: cwd))
+        case .split(let axis, let fraction, let first, let second):
+            return .split(
+                id: UUID(),
+                axis: axis == "vertical" ? .vertical : .horizontal,
+                fraction: CGFloat(fraction),
+                first: first.buildNode(),
+                second: second.buildNode()
+            )
+        }
+    }
 }

@@ -169,6 +169,13 @@ public final class SiqiTab: ObservableObject, Identifiable {
         observeSession(session)
     }
 
+    public init(rootPane: PaneNode, activeSessionId: UUID) {
+        self.id = UUID()
+        self.rootPane = rootPane
+        self.activeSessionId = activeSessionId
+        observeAllSessions()
+    }
+
     public var title: String {
         activeSession?.title ?? "zsh"
     }
@@ -362,6 +369,17 @@ public final class SiqiWindowModel: ObservableObject {
         self.activeTabId = tab.id
         for session in tab.allSessions {
             attachSessionCallbacks(session)
+        }
+    }
+
+    public init(tabs: [SiqiTab], activeTabId: UUID?) {
+        self.tabs = tabs
+        self.activeTabId = activeTabId ?? tabs.first?.id
+        for tab in tabs {
+            tab.observeAllSessions()
+            for session in tab.allSessions {
+                attachSessionCallbacks(session)
+            }
         }
     }
 

@@ -15,7 +15,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = AppTerminalView.enableDragAndDropPipeline
         _ = SiqiConfigFileWatcher.shared
         _ = QuickTerminalController.shared
-        _ = SiqiWindowManager.shared.createWindow()
+        if !SiqiWindowManager.shared.restoreWindowsFromState() {
+            _ = SiqiWindowManager.shared.createWindow()
+        }
+    }
+
+    public func applicationWillTerminate(_ notification: Notification) {
+        SiqiWindowManager.shared.saveWindowState()
     }
 
     public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
