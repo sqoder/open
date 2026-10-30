@@ -117,16 +117,20 @@ final class WindowStatePersistenceTests: XCTestCase {
 
 @MainActor
 final class KeyEquivalentPolicyTests: XCTestCase {
-    func testYieldsCommandCommaToMenu() {
-        XCTAssertTrue(AppTerminalView.shouldYieldToMenu(makeEvent("comma", modifiers: .command)))
+    func testSettingsShortcutMatchesAsciiComma() {
+        XCTAssertTrue(AppTerminalView.isSettingsShortcut(makeEvent(",", keyCode: 43, modifiers: .command)))
     }
 
-    func testKeepsPlainCommandLettersForTheTerminal() {
-        XCTAssertFalse(AppTerminalView.shouldYieldToMenu(makeEvent("t", modifiers: .command)))
-        XCTAssertFalse(AppTerminalView.shouldYieldToMenu(makeEvent("comma", modifiers: [.command, .shift])))
+    func testSettingsShortcutMatchesFullWidthCommaFromChineseInput() {
+        XCTAssertTrue(AppTerminalView.isSettingsShortcut(makeEvent("，", keyCode: 43, modifiers: .command)))
     }
 
-    private func makeEvent(_ key: String, modifiers: NSEvent.ModifierFlags) -> NSEvent {
+    func testSettingsShortcutIgnoresOtherKeys() {
+        XCTAssertFalse(AppTerminalView.isSettingsShortcut(makeEvent("t", keyCode: 17, modifiers: .command)))
+        XCTAssertFalse(AppTerminalView.isSettingsShortcut(makeEvent(",", keyCode: 43, modifiers: [.command, .shift])))
+    }
+
+    private func makeEvent(_ characters: String, keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> NSEvent {
         NSEvent.keyEvent(
             with: .keyDown,
             location: .zero,
@@ -134,10 +138,10 @@ final class KeyEquivalentPolicyTests: XCTestCase {
             timestamp: 1,
             windowNumber: 0,
             context: nil,
-            characters: key == "comma" ? "," : key,
-            charactersIgnoringModifiers: key == "comma" ? "," : key,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
             isARepeat: false,
-            keyCode: 0
+            keyCode: keyCode
         )!
     }
 }
