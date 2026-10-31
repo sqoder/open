@@ -231,6 +231,7 @@ struct MonitoredInstance {
     var modelName: String = "Gemini 3.8 Flash"
     var claudeMessageLedger: [String: Int] = [:]
     var claudeRequestStartedAt: Date?
+    var claudeToolInFlight: Bool = false
     var antigravityStepInFlight: Bool = false
     var codexFlavor: CodexFlavor = .cli
     var codexTaskStartedAt: Date?
@@ -2371,6 +2372,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     var instances: [MonitoredInstance] = []
     var isChecking: Bool = false
+    private var instancesGeneration = 0
     private var codexOriginatorCache: [String: String] = [:]
     private var codexLatestCache: [CodexFlavor: (url: URL, modDate: Date)] = [:]
     private var codexDiscoveryAt = Date.distantPast
@@ -2533,27 +2535,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func fastFindLatestAntigravityTranscript(in brainDir: URL) -> (url: URL, modDate: Date)? {
         guard let sessionDirs = try? FileManager.default.contentsOfDirectory(
             at: brainDir,
-            includingPropertiesForKeys: [.contentModificationDateKey],
+            includingPropertiesForKeys: nil,
             options: .skipsHiddenFiles
         ) else { return nil }
-        
-        let sortedDirs = sessionDirs.compactMap { url -> (URL, Date)? in
-            guard let attrs = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
-                  let date = attrs.contentModificationDate else { return nil }
-            return (url, date)
-        }.sorted { $0.1 > $1.1 }
         
         var latestFile: URL?
         var latestDate: Date = .distantPast
         
-        for (dir, _) in sortedDirs.prefix(5) {
+        // Session directory mtimes only reflect creation; a resumed conversation
+        // appends to an old directory. Rank the transcripts themselves instead.
+        for dir in sessionDirs {
             let transcript = dir.appendingPathComponent(".system_generated/logs/transcript.jsonl")
             if let attrs = try? transcript.resourceValues(forKeys: [.contentModificationDateKey]),
-               let date = attrs.contentModificationDate {
-                if date > latestDate {
-                    latestDate = date
-                    latestFile = transcript
-                }
+               let date = attrs.contentModificationDate,
+               date > latestDate {
+                latestDate = date
+                latestFile = transcript
             }
         }
         
@@ -2566,33 +2563,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func fastFindLatestQoderTranscript(in projectsDir: URL) -> (url: URL, modDate: Date)? {
         guard let projectDirs = try? FileManager.default.contentsOfDirectory(
             at: projectsDir,
-            includingPropertiesForKeys: [.contentModificationDateKey],
+            includingPropertiesForKeys: nil,
             options: .skipsHiddenFiles
         ) else { return nil }
         
         var latestFile: URL?
         var latestDate: Date = .distantPast
         
-        let sortedDirs = projectDirs.compactMap { url -> (URL, Date)? in
-            guard let attrs = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
-                  let date = attrs.contentModificationDate else { return nil }
-            return (url, date)
-        }.sorted { $0.1 > $1.1 }
-        
-        for (dir, _) in sortedDirs.prefix(5) {
-            if let files = try? FileManager.default.contentsOfDirectory(
+        // Project directory mtimes only change when a new session file appears,
+        // so an active old conversation would be missed by a prefix heuristic.
+        for dir in projectDirs {
+            guard let files = try? FileManager.default.contentsOfDirectory(
                 at: dir,
                 includingPropertiesForKeys: [.contentModificationDateKey],
                 options: .skipsHiddenFiles
-            ) {
-                for f in files where f.pathExtension == "jsonl" {
-                    if let attrs = try? f.resourceValues(forKeys: [.contentModificationDateKey]),
-                       let date = attrs.contentModificationDate {
-                        if date > latestDate {
-                            latestDate = date
-                            latestFile = f
-                        }
-                    }
+            ) else { continue }
+            
+            for f in files where f.pathExtension == "jsonl" {
+                if let attrs = try? f.resourceValues(forKeys: [.contentModificationDateKey]),
+                   let date = attrs.contentModificationDate,
+                   date > latestDate {
+                    latestDate = date
+                    latestFile = f
                 }
             }
         }
@@ -3076,6 +3068,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             instance.currentSpeed = 0
             instance.claudeMessageLedger.removeAll()
             instance.claudeRequestStartedAt = nil
+            instance.claudeToolInFlight = false
         }
         
         handle.seek(toFileOffset: instance.lastTrackedFileSize)
@@ -3117,6 +3110,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                    content.hasPrefix("<command-") || content.hasPrefix("<local-command-") {
                     continue
                 }
+                instance.claudeToolInFlight = false
                 instance.claudeRequestStartedAt = parseDate(json["timestamp"]) ?? instance.claudeRequestStartedAt
                 instance.isGenerating = true
             } else if type == "assistant" {
@@ -3143,7 +3137,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         }
                     }
                 }
-                instance.isGenerating = false
+                // A tool_use block is written before the tool actually runs;
+                // treating every assistant line as the end marks long tools idle.
+                let stopReason = msg?["stop_reason"] as? String
+                instance.claudeToolInFlight = (stopReason == "tool_use")
+                instance.isGenerating = instance.claudeToolInFlight
             }
         }
     }
@@ -3321,11 +3319,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func triggerBackgroundUpdate() {
         if isChecking { return }
         isChecking = true
+
+        // Keep array access on the main thread; the scan owns a value snapshot.
+        let snapshot = instances
+        let generation = instancesGeneration
         
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
             let now = Date()
-            var updatedInstances = self.instances
+            var updatedInstances = snapshot
             var hasChanges = false
             
             for i in 0..<updatedInstances.count {
@@ -3341,6 +3343,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         updatedInstances[i].antigravityStepInFlight = false
                         updatedInstances[i].claudeMessageLedger.removeAll()
                         updatedInstances[i].claudeRequestStartedAt = nil
+                        updatedInstances[i].claudeToolInFlight = false
                         updatedInstances[i].codexTaskStartedAt = nil
                         updatedInstances[i].codexLastTokenAt = nil
                         updatedInstances[i].qoderTurnStartedAt = nil
@@ -3393,10 +3396,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     }
                     
                     // Claude Code only appends when a content block completes, so a
-                    // long-silent transcript means the request was abandoned.
+                    // long-silent transcript means the request was abandoned. A
+                    // pending tool may legitimately run much longer than a model turn.
+                    let claudeSilence = updatedInstances[i].claudeToolInFlight ? 1800.0 : 600.0
                     if updatedInstances[i].type == .claude,
                        updatedInstances[i].isGenerating,
-                       now.timeIntervalSince(latest.modDate) > 600 {
+                       now.timeIntervalSince(latest.modDate) > claudeSilence {
                         updatedInstances[i].isGenerating = false
                         hasChanges = true
                     }
@@ -3419,6 +3424,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             
             DispatchQueue.main.async {
                 self.isChecking = false
+                guard generation == self.instancesGeneration else {
+                    // refreshAction reset the state while this scan was running;
+                    // drop the stale copy and rescan from the reset snapshot.
+                    self.triggerBackgroundUpdate()
+                    return
+                }
                 self.instances = updatedInstances
                 if hasChanges {
                     self.updateDashboardState()
@@ -3482,6 +3493,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     
     @objc func refreshAction() {
+        instancesGeneration += 1
         for i in 0..<instances.count {
             instances[i].lastParsedModDate = .distantPast
             instances[i].totalSessionTokens = 0
@@ -3489,6 +3501,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             instances[i].antigravityStepInFlight = false
             instances[i].claudeMessageLedger.removeAll()
             instances[i].claudeRequestStartedAt = nil
+            instances[i].claudeToolInFlight = false
             instances[i].codexTaskStartedAt = nil
             instances[i].codexLastTokenAt = nil
             instances[i].qoderTurnStartedAt = nil
