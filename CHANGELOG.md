@@ -1,5 +1,20 @@
 # momi 更新日志 (Changelog)
 
+## [1.5.5] - 2026-10-31
+
+### DeepSeek Harness 支持
+- **新增 DeepSeek Harness 监听**：读取 `~/.dsh/storages/session_projcache/sessions/*.json` 明文投影缓存，桌面版与 CLI 会话共用同一套解析。
+- **运行状态判定**：`sessionStats.openStep` 在飞或 `turnBoundary.openTurnStartSeq` 未闭合时视为运行中；以最后一条真实事件时间做 900s 静默兜底，UI 重写缓存不会让状态卡死。
+- **速度与模型**：按 `decodeTokens` / `decodeMs` 的增量计算实时速度，模型取 `modelSelection.lastUsed.model`（如 `DeepSeek-V4.1-Flash`）。
+- **用量统计**：按 `tokenUsage.totals` 的增量累计输入 / 输出 / 缓存；投影文件整体重写时通过 checkpoint 保证不重复计数。
+- **图标**：新增官方 DeepSeek 鲸鱼模板图标。
+
+### 菜单栏项消失修复
+- **更新 Bundle ID**：`com.momi.speedo` → `com.momi.speedo.v2`。旧 ID 的历史注册把状态栏项排到屏幕外。
+- **更换状态栏槽位名**：`autosaveName` 改为 `momi.speedo.v2`，避免继承失效的保存位置。
+
+---
+
 ## [1.5.4] - 2026-10-30
 
 ### Qoder 与 Pi 监听精度优化

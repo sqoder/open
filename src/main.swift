@@ -140,6 +140,20 @@ func codexModelDisplayName(for raw: String) -> String {
     return "GPT-" + tail
 }
 
+func deepseekModelDisplayName(for raw: String) -> String {
+    let clean = sanitizeModelName(raw)
+    guard !clean.isEmpty else { return "DeepSeek" }
+    let id = clean.split(separator: "/").last.map(String.init) ?? clean
+    var parts = id.split(separator: "-").map { part -> String in
+        guard let first = part.first else { return "" }
+        return first.uppercased() + part.dropFirst()
+    }
+    if let first = parts.first, first.lowercased() == "deepseek" {
+        parts[0] = "DeepSeek"
+    }
+    return parts.joined(separator: "-")
+}
+
 enum CodexFlavor: String {
     case desktop
     case cli
@@ -152,13 +166,14 @@ func codexFlavor(forOriginator raw: String?) -> CodexFlavor {
     return value.contains("desktop") || value.contains("vscode") ? .desktop : .cli
 }
 
-let usageAgentOrder = ["antigravity-desktop", "antigravity-cli", "qoder", "pi", "claude", "codex-desktop", "codex-cli"]
+let usageAgentOrder = ["antigravity-desktop", "antigravity-cli", "qoder", "deepseek", "pi", "claude", "codex-desktop", "codex-cli"]
 
 func agentDisplayName(for key: String) -> String {
     switch key {
     case "antigravity-desktop": return "Antigravity Desktop"
     case "antigravity-cli": return "Antigravity CLI"
     case "qoder": return "Qoder"
+    case "deepseek": return "DeepSeek Harness"
     case "pi": return "Pi"
     case "claude": return "Claude Code"
     case "codex-desktop": return "Codex App"
@@ -172,6 +187,7 @@ func agentIconName(for key: String) -> String? {
     case "antigravity-desktop": return "agent_antigravity"
     case "antigravity-cli": return "agent_antigravity_cli"
     case "qoder": return "agent_qoder"
+    case "deepseek": return "agent_deepseek"
     case "pi": return "agent_pi"
     case "claude": return "agent_claude"
     case "codex-desktop": return "agent_codex"
@@ -187,6 +203,7 @@ let refreshIntervalDefaultsKey = "momi.refreshInterval"
 enum InstanceType {
     case antigravity
     case qoder
+    case deepseek
     case pi
     case claude
     case codex
@@ -211,6 +228,9 @@ struct MonitoredInstance {
     var codexFlavor: CodexFlavor = .cli
     var codexTaskStartedAt: Date?
     var codexLastTokenAt: Date?
+    var deepseekDecodeTokens: Int = 0
+    var deepseekDecodeMs: Double = 0
+    var deepseekLastActivity: Date?
 }
 
 // MARK: - Usage Statistics Model
@@ -304,6 +324,10 @@ struct UsageFileCheckpoint: Codable {
     var codexInput: Int64 = 0
     var codexOutput: Int64 = 0
     var codexCache: Int64 = 0
+    var deepseekInput: Int64 = 0
+    var deepseekOutput: Int64 = 0
+    var deepseekCache: Int64 = 0
+    var deepseekSteps: Int64 = 0
 
     init() {}
 
@@ -311,6 +335,7 @@ struct UsageFileCheckpoint: Codable {
         case size, mtime, offset, antigravityModel, antigravityLastStep
         case claudeMessageId, claudeInput, claudeOutput, claudeCache
         case codexAgent, codexModel, codexInput, codexOutput, codexCache
+        case deepseekInput, deepseekOutput, deepseekCache, deepseekSteps
     }
 
     init(from decoder: Decoder) throws {
@@ -329,6 +354,10 @@ struct UsageFileCheckpoint: Codable {
         codexInput = try c.decodeIfPresent(Int64.self, forKey: .codexInput) ?? 0
         codexOutput = try c.decodeIfPresent(Int64.self, forKey: .codexOutput) ?? 0
         codexCache = try c.decodeIfPresent(Int64.self, forKey: .codexCache) ?? 0
+        deepseekInput = try c.decodeIfPresent(Int64.self, forKey: .deepseekInput) ?? 0
+        deepseekOutput = try c.decodeIfPresent(Int64.self, forKey: .deepseekOutput) ?? 0
+        deepseekCache = try c.decodeIfPresent(Int64.self, forKey: .deepseekCache) ?? 0
+        deepseekSteps = try c.decodeIfPresent(Int64.self, forKey: .deepseekSteps) ?? 0
     }
 }
 
@@ -496,6 +525,12 @@ final class UsageIndex {
                 matches: { $0.pathExtension == "jsonl" }
             ),
             SourceSpec(
+                root: home.appendingPathComponent(".dsh/storages/session_projcache/sessions"),
+                agent: "deepseek",
+                kind: .deepseek,
+                matches: { $0.pathExtension == "json" }
+            ),
+            SourceSpec(
                 root: home.appendingPathComponent(".pi/agent/sessions"),
                 agent: "pi",
                 kind: .pi,
@@ -562,6 +597,9 @@ final class UsageIndex {
         let files = collectSourceFiles()
         if !rebuildNeeded {
             for file in files {
+                // Projection caches are rewritten wholesale and may legitimately
+                // shrink; only append-only transcripts signal a rebuild this way.
+                if file.kind == .deepseek { continue }
                 if let checkpoint = store.files[file.path], checkpoint.offset > 0, file.size < checkpoint.offset {
                     rebuildNeeded = true
                     break
@@ -576,6 +614,16 @@ final class UsageIndex {
         var pending: [(SourceFile, UInt64)] = []
         for file in files {
             let checkpoint = store.files[file.path]
+            if file.kind == .deepseek {
+                let changed = checkpoint.map {
+                    $0.size != file.size
+                        || abs($0.mtime - file.mtime.timeIntervalSince1970) >= 0.001
+                } ?? true
+                if changed {
+                    pending.append((file, file.size))
+                }
+                continue
+            }
             let offset = checkpoint?.offset ?? 0
             if let checkpoint = checkpoint,
                checkpoint.size == file.size,
@@ -636,6 +684,11 @@ final class UsageIndex {
     /// Returns false when the file shrank after enumeration and a full rebuild is required.
     private func scanFile(_ file: SourceFile) -> Bool {
         var checkpoint = store.files[file.path] ?? UsageFileCheckpoint()
+        if file.kind == .deepseek {
+            let ok = scanDeepseekProjection(file, checkpoint: &checkpoint)
+            store.files[file.path] = checkpoint
+            return ok
+        }
         guard let handle = try? FileHandle(forReadingFrom: file.url) else { return true }
         defer { try? handle.close() }
 
@@ -662,6 +715,8 @@ final class UsageIndex {
             scanAntigravity(lines: lines, file: file, checkpoint: &checkpoint)
         case .qoder:
             scanQoder(lines: lines, file: file, checkpoint: &checkpoint)
+        case .deepseek:
+            break
         case .pi:
             scanPi(lines: lines, file: file, checkpoint: &checkpoint)
         case .claude:
@@ -674,6 +729,80 @@ final class UsageIndex {
         checkpoint.size = actualSize
         checkpoint.mtime = file.mtime.timeIntervalSince1970
         store.files[file.path] = checkpoint
+        return true
+    }
+
+    private func scanDeepseekProjection(_ file: SourceFile, checkpoint: inout UsageFileCheckpoint) -> Bool {
+        guard let data = try? Data(contentsOf: file.url),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let recordObject = root["record"] as? [String: Any],
+              let rows = recordObject["rows"] as? [String: Any] else { return true }
+
+        func row(_ key: String) -> [String: Any]? {
+            guard let entry = rows[key] as? [String: Any],
+                  let value = entry["val"] as? [String: Any] else { return nil }
+            return value
+        }
+
+        checkpoint.offset = UInt64(data.count)
+        checkpoint.size = UInt64(data.count)
+        checkpoint.mtime = file.mtime.timeIntervalSince1970
+
+        guard let usage = row("tokenUsage"),
+              let totals = usage["totals"] as? [String: Any] else { return true }
+
+        let input = Int64((totals["uncachedInputTokens"] as? NSNumber)?.int64Value ?? 0)
+        let output = Int64((totals["outputTokens"] as? NSNumber)?.int64Value ?? 0)
+        let cache = Int64((totals["cacheReadTokens"] as? NSNumber)?.int64Value ?? 0)
+            + Int64((totals["cacheWriteTokens"] as? NSNumber)?.int64Value ?? 0)
+        let steps = Int64((row("sessionStats")?["steps"] as? NSNumber)?.int64Value ?? 0)
+
+        if input < checkpoint.deepseekInput
+            || output < checkpoint.deepseekOutput
+            || cache < checkpoint.deepseekCache
+            || steps < checkpoint.deepseekSteps {
+            checkpoint.deepseekInput = input
+            checkpoint.deepseekOutput = output
+            checkpoint.deepseekCache = cache
+            checkpoint.deepseekSteps = steps
+            return true
+        }
+
+        let deltaInput = input - checkpoint.deepseekInput
+        let deltaOutput = output - checkpoint.deepseekOutput
+        let deltaCache = cache - checkpoint.deepseekCache
+        let deltaSteps = max(0, steps - checkpoint.deepseekSteps)
+        checkpoint.deepseekInput = input
+        checkpoint.deepseekOutput = output
+        checkpoint.deepseekCache = cache
+        checkpoint.deepseekSteps = steps
+
+        guard deltaInput > 0 || deltaOutput > 0 || deltaCache > 0 else { return true }
+
+        var rawModel = "DeepSeek"
+        if let selection = row("modelSelection"),
+           let lastUsed = selection["lastUsed"] as? [String: Any],
+           let model = lastUsed["model"] as? String, !model.isEmpty {
+            rawModel = model
+        }
+
+        let day: String
+        if let ms = (row("sessionListMetadata")?["lastPromptAt"] as? NSNumber)?.doubleValue, ms > 0 {
+            day = dayKey(for: Date(timeIntervalSince1970: ms / 1000))
+        } else {
+            day = dayKey(for: file.mtime)
+        }
+
+        record(
+            agent: file.agent,
+            model: deepseekModelDisplayName(for: rawModel),
+            day: day,
+            input: deltaInput,
+            output: deltaOutput,
+            cache: deltaCache,
+            requests: Int(deltaSteps),
+            estimated: false
+        )
         return true
     }
 
@@ -1239,6 +1368,8 @@ class MomiDashboardView: NSView {
         switch instance.type {
         case .qoder:
             name = "agent_qoder"
+        case .deepseek:
+            name = "agent_deepseek"
         case .pi:
             name = "agent_pi"
         case .claude:
@@ -2245,7 +2376,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.autosaveName = "momi"
+        // Versioned slot: a poisoned autosave position parks the item off-screen.
+        statusItem.autosaveName = "momi.speedo.v2"
         statusItem.button?.image = nil
         statusItem.button?.title = "--"
         
@@ -2269,6 +2401,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 type: .qoder,
                 baseDir: home.appendingPathComponent(".qoder/projects"),
                 modelName: "DeepSeek-Flash"
+            ),
+            MonitoredInstance(
+                name: "DeepSeek Harness",
+                shortTag: "DeepSeek",
+                type: .deepseek,
+                baseDir: home.appendingPathComponent(".dsh/storages/session_projcache/sessions"),
+                modelName: "DeepSeek Harness"
             ),
             MonitoredInstance(
                 name: "Pi",
@@ -2372,6 +2511,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return fastFindLatestAntigravityTranscript(in: instance.baseDir)
         case .qoder:
             return fastFindLatestQoderTranscript(in: instance.baseDir)
+        case .deepseek:
+            return fastFindLatestDeepseekSession(in: instance.baseDir)
         case .pi:
             return fastFindLatestPiTranscript(in: instance.baseDir)
         case .claude:
@@ -2520,6 +2661,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return nil
     }
     
+    func fastFindLatestDeepseekSession(in cacheDir: URL) -> (url: URL, modDate: Date)? {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: cacheDir,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: .skipsHiddenFiles
+        ) else { return nil }
+
+        var latestFile: URL?
+        var latestDate: Date = .distantPast
+        for f in files where f.pathExtension == "json" {
+            if let attrs = try? f.resourceValues(forKeys: [.contentModificationDateKey]),
+               let date = attrs.contentModificationDate,
+               date > latestDate {
+                latestDate = date
+                latestFile = f
+            }
+        }
+
+        if let url = latestFile {
+            return (url, latestDate)
+        }
+        return nil
+    }
+
     func fastFindLatestCodexTranscript(in sessionsDir: URL, flavor wanted: CodexFlavor) -> (url: URL, modDate: Date)? {
         let now = Date()
         if now.timeIntervalSince(codexDiscoveryAt) > 5 || codexLatestCache.isEmpty {
@@ -2586,12 +2751,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return String(decoding: data, as: UTF8.self)
     }
     
-    func updateSessionTokens(url: URL, instance: inout MonitoredInstance) {
+    func updateSessionTokens(url: URL, modDate: Date, instance: inout MonitoredInstance) {
         switch instance.type {
         case .antigravity:
             updateAntigravitySessionTokens(url: url, instance: &instance)
         case .qoder:
             updateQoderSessionTokens(url: url, instance: &instance)
+        case .deepseek:
+            updateDeepseekSessionTokens(url: url, fileModDate: modDate, instance: &instance)
         case .pi:
             updatePiSessionTokens(url: url, instance: &instance)
         case .claude:
@@ -2723,6 +2890,83 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     
+    /// The raw dsh transcript is zstd-compressed; its plain projection cache carries open-turn state, totals and decode timing.
+    func updateDeepseekSessionTokens(url: URL, fileModDate: Date, instance: inout MonitoredInstance) {
+        guard let data = try? Data(contentsOf: url),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let record = root["record"] as? [String: Any],
+              let rows = record["rows"] as? [String: Any] else { return }
+
+        func row(_ key: String) -> [String: Any]? {
+            guard let entry = rows[key] as? [String: Any],
+                  let value = entry["val"] as? [String: Any] else { return nil }
+            return value
+        }
+
+        if let selection = row("modelSelection"),
+           let lastUsed = selection["lastUsed"] as? [String: Any],
+           let model = lastUsed["model"] as? String, !model.isEmpty {
+            instance.modelName = deepseekModelDisplayName(for: model)
+        }
+
+        var running = false
+        var stats: [String: Any]?
+        var realActivity: Date?
+        if let sessionStats = row("sessionStats") {
+            stats = sessionStats
+            if let openStep = sessionStats["openStep"] as? [String: Any] {
+                running = true
+                if let ms = (openStep["startTime"] as? NSNumber)?.doubleValue, ms > 0 {
+                    realActivity = Date(timeIntervalSince1970: ms / 1000)
+                }
+            }
+        }
+        if let boundary = row("turnBoundary"),
+           (boundary["openTurnStartSeq"] as? NSNumber) != nil {
+            // Tools run between steps; the turn stays open until turn/end.
+            running = true
+        }
+        if let ms = (row("timeContext")?["lastMessageTime"] as? NSNumber)?.doubleValue, ms > 0 {
+            let messageTime = Date(timeIntervalSince1970: ms / 1000)
+            realActivity = max(realActivity ?? .distantPast, messageTime)
+        }
+        instance.deepseekLastActivity = realActivity ?? fileModDate
+        instance.isGenerating = running
+
+        guard let usage = row("tokenUsage"),
+              let totals = usage["totals"] as? [String: Any],
+              let output = (totals["outputTokens"] as? NSNumber)?.intValue else { return }
+        instance.totalSessionTokens = output
+
+        let decodeTokens = (stats?["decodeTokens"] as? NSNumber)?.intValue ?? 0
+        let decodeMs = (stats?["decodeMs"] as? NSNumber)?.doubleValue ?? 0
+
+        if instance.deepseekDecodeMs == 0, decodeMs > 0 {
+            // First sighting of a session that is already decoding: adopt the
+            // harness's cumulative decode average instead of starting at 0.
+            if running && decodeTokens > 0 {
+                instance.currentSpeed = Double(decodeTokens) / (decodeMs / 1000)
+            }
+            instance.deepseekDecodeTokens = decodeTokens
+            instance.deepseekDecodeMs = decodeMs
+            return
+        }
+
+        if decodeTokens < instance.deepseekDecodeTokens || decodeMs < instance.deepseekDecodeMs {
+            instance.deepseekDecodeTokens = decodeTokens
+            instance.deepseekDecodeMs = decodeMs
+            return
+        }
+
+        let deltaTokens = decodeTokens - instance.deepseekDecodeTokens
+        let deltaMs = decodeMs - instance.deepseekDecodeMs
+        if deltaTokens > 0 && deltaMs > 0 {
+            instance.currentSpeed = Double(deltaTokens) / (deltaMs / 1000)
+        }
+        instance.deepseekDecodeTokens = decodeTokens
+        instance.deepseekDecodeMs = decodeMs
+    }
+
     /// Incrementally scans new bytes from Pi's session JSONL
     func updatePiSessionTokens(url: URL, instance: inout MonitoredInstance) {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return }
@@ -2997,7 +3241,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return parseAntigravityTail(url: url, fileModDate: fileModDate)
         case .qoder:
             return (parseQoderLatestSpeed(url: url, fileModDate: fileModDate), nil)
-        case .pi, .claude, .codex:
+        case .pi, .claude, .codex, .deepseek:
             return (0.0, nil) // speed is computed while incrementally scanning events
         }
     }
@@ -3144,6 +3388,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         updatedInstances[i].claudeRequestStartedAt = nil
                         updatedInstances[i].codexTaskStartedAt = nil
                         updatedInstances[i].codexLastTokenAt = nil
+                        updatedInstances[i].deepseekDecodeTokens = 0
+                        updatedInstances[i].deepseekDecodeMs = 0
+                        updatedInstances[i].deepseekLastActivity = nil
                         if updatedInstances[i].type == .qoder {
                             updatedInstances[i].modelName = "Qoder"
                         } else if updatedInstances[i].type == .pi {
@@ -3152,6 +3399,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                             updatedInstances[i].modelName = "Claude"
                         } else if updatedInstances[i].type == .codex {
                             updatedInstances[i].modelName = "Codex"
+                        } else if updatedInstances[i].type == .deepseek {
+                            updatedInstances[i].modelName = "DeepSeek Harness"
                         }
                         hasChanges = true
                     }
@@ -3162,7 +3411,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         updatedInstances[i].lastParsedModDate = latest.modDate
                         
                         // 1. Incrementally calculate session tokens and track model
-                        self.updateSessionTokens(url: latest.url, instance: &updatedInstances[i])
+                        self.updateSessionTokens(url: latest.url, modDate: latest.modDate, instance: &updatedInstances[i])
                         
                         // 2. Parse latest speed
                         let probe = self.parseLatestSpeed(url: latest.url, fileModDate: latest.modDate, type: updatedInstances[i].type)
@@ -3199,9 +3448,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     
                     // Same safety net for runs stopped mid-tool; otherwise a
                     // trailing tool_use event would keep the row "运行中".
-                    if (updatedInstances[i].type == .qoder || updatedInstances[i].type == .pi || updatedInstances[i].type == .codex),
+                    // Projection caches can be rewritten by the UI, so DeepSeek
+                    // staleness is measured from its last real event instead.
+                    let silentSince = updatedInstances[i].type == .deepseek
+                        ? (updatedInstances[i].deepseekLastActivity ?? latest.modDate)
+                        : latest.modDate
+                    if (updatedInstances[i].type == .qoder || updatedInstances[i].type == .pi || updatedInstances[i].type == .codex || updatedInstances[i].type == .deepseek),
                        updatedInstances[i].isGenerating,
-                       now.timeIntervalSince(latest.modDate) > 900 {
+                       now.timeIntervalSince(silentSince) > 900 {
                         updatedInstances[i].isGenerating = false
                         hasChanges = true
                     }
@@ -3281,6 +3535,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             instances[i].claudeRequestStartedAt = nil
             instances[i].codexTaskStartedAt = nil
             instances[i].codexLastTokenAt = nil
+            instances[i].deepseekDecodeTokens = 0
+            instances[i].deepseekDecodeMs = 0
+            instances[i].deepseekLastActivity = nil
         }
         triggerBackgroundUpdate()
         UsageIndex.shared.scanNow()
