@@ -16,6 +16,13 @@ func sanitizeModelName(_ raw: String) -> String {
     return s.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
+let maxPlausibleSpeed: Double = 5_000
+
+func clampSpeed(_ speed: Double) -> Double {
+    guard speed.isFinite, speed > 0 else { return 0 }
+    return min(speed, maxPlausibleSpeed)
+}
+
 func extractModelName(from content: String) -> String? {
     guard content.contains("Model Selection") else { return nil }
     let pattern = #"(?:setting\s+)?[`\x27]?Model Selection[`\x27]?\s+from\s+.+?\s+to\s+(.+?)(?:\.\s+(?:No need|If reporting)|</USER_SETTINGS_CHANGE>|\.\s*\n|\.\s*$|\n)"#
@@ -228,8 +235,8 @@ struct MonitoredInstance {
     var codexFlavor: CodexFlavor = .cli
     var codexTaskStartedAt: Date?
     var codexLastTokenAt: Date?
-    var deepseekDecodeTokens: Int = 0
-    var deepseekDecodeMs: Double = 0
+    var qoderTurnStartedAt: Date?
+    var qoderTurnTokens: Int = 0
     var deepseekLastActivity: Date?
 }
 
@@ -1217,10 +1224,11 @@ class AgentTableRowView: NSView {
         modelLabel.stringValue = instance.modelName
         modelLabel.toolTip = instance.modelName
         
+        let speed = clampSpeed(instance.currentSpeed)
         if instance.isGenerating {
-            if instance.currentSpeed > 0 {
+            if speed > 0 {
                 speedLabel.font = .monospacedDigitSystemFont(ofSize: 11.5, weight: .semibold)
-                speedLabel.stringValue = String(format: "%.1f t/s", instance.currentSpeed)
+                speedLabel.stringValue = String(format: "%.1f t/s", speed)
             } else {
                 speedLabel.font = .systemFont(ofSize: 11, weight: .medium)
                 speedLabel.stringValue = "运行中"
@@ -2831,6 +2839,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             instance.lastTrackedFileSize = 0
             instance.isGenerating = false
             instance.currentSpeed = 0
+            instance.qoderTurnStartedAt = nil
+            instance.qoderTurnTokens = 0
         }
         
         handle.seek(toFileOffset: instance.lastTrackedFileSize)
@@ -2849,6 +2859,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !str.isEmpty else { return }
         let lines = str.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         
+        let fractionalFormatter = ISO8601DateFormatter()
+        fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plainFormatter = ISO8601DateFormatter()
+        plainFormatter.formatOptions = [.withInternetDateTime]
+
+        func parseDate(_ value: Any?) -> Date? {
+            guard let s = value as? String else { return nil }
+            return fractionalFormatter.date(from: s) ?? plainFormatter.date(from: s)
+        }
+
         var generatingState: Bool?
         for line in lines {
             guard let d = line.data(using: .utf8),
@@ -2856,6 +2876,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             
             let type = (json["type"] as? String) ?? ""
             if type == "user" {
+                // Tool results are not new user turns; resetting the window here
+                // makes a big thinking block look like a thousands-t/s burst.
+                let content = (json["message"] as? [String: Any])?["content"] as? [[String: Any]]
+                let isToolResult = content?.contains { ($0["type"] as? String) == "tool_result" } ?? false
+                if !isToolResult {
+                    instance.qoderTurnStartedAt = parseDate(json["timestamp"])
+                    instance.qoderTurnTokens = 0
+                }
                 generatingState = true
             }
             
@@ -2882,6 +2910,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 let tokens = max(1, Int(Double(chars) / 2.2))
                 instance.totalSessionTokens += tokens
+                instance.qoderTurnTokens += tokens
+
+                if let started = instance.qoderTurnStartedAt,
+                   let ended = parseDate(json["timestamp"]),
+                   instance.qoderTurnTokens > 30 {
+                    let duration = max(0.5, ended.timeIntervalSince(started))
+                    instance.currentSpeed = clampSpeed(Double(instance.qoderTurnTokens) / duration)
+                }
             }
         }
         
@@ -2938,33 +2974,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               let output = (totals["outputTokens"] as? NSNumber)?.intValue else { return }
         instance.totalSessionTokens = output
 
-        let decodeTokens = (stats?["decodeTokens"] as? NSNumber)?.intValue ?? 0
+        let decodeTokens = (stats?["decodeTokens"] as? NSNumber)?.doubleValue ?? 0
         let decodeMs = (stats?["decodeMs"] as? NSNumber)?.doubleValue ?? 0
-
-        if instance.deepseekDecodeMs == 0, decodeMs > 0 {
-            // First sighting of a session that is already decoding: adopt the
-            // harness's cumulative decode average instead of starting at 0.
-            if running && decodeTokens > 0 {
-                instance.currentSpeed = Double(decodeTokens) / (decodeMs / 1000)
-            }
-            instance.deepseekDecodeTokens = decodeTokens
-            instance.deepseekDecodeMs = decodeMs
-            return
+        if running, decodeTokens > 0, decodeMs > 0 {
+            // The projection cache can publish tokens and decode time a moment
+            // apart; differencing them produces impossible bursts. The harness's
+            // cumulative decode rate is stable and authoritative.
+            instance.currentSpeed = clampSpeed(decodeTokens / (decodeMs / 1000))
         }
-
-        if decodeTokens < instance.deepseekDecodeTokens || decodeMs < instance.deepseekDecodeMs {
-            instance.deepseekDecodeTokens = decodeTokens
-            instance.deepseekDecodeMs = decodeMs
-            return
-        }
-
-        let deltaTokens = decodeTokens - instance.deepseekDecodeTokens
-        let deltaMs = decodeMs - instance.deepseekDecodeMs
-        if deltaTokens > 0 && deltaMs > 0 {
-            instance.currentSpeed = Double(deltaTokens) / (deltaMs / 1000)
-        }
-        instance.deepseekDecodeTokens = decodeTokens
-        instance.deepseekDecodeMs = decodeMs
     }
 
     /// Incrementally scans new bytes from Pi's session JSONL
@@ -3028,8 +3045,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let output = (msg["usage"] as? [String: Any]).flatMap { ($0["output"] as? NSNumber)?.intValue } ?? 0
             let durationMs = (msg["durationMs"] as? NSNumber)?.doubleValue ?? 0
             instance.totalSessionTokens += output
-            if output > 0 && durationMs > 0 {
-                instance.currentSpeed = Double(output) / (durationMs / 1000.0)
+            if output > 0 && durationMs >= 50 {
+                instance.currentSpeed = clampSpeed(Double(output) / (durationMs / 1000.0))
             }
         }
         
@@ -3122,7 +3139,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         if let started = instance.claudeRequestStartedAt,
                            let ended = parseDate(json["timestamp"]) {
                             let duration = max(0.5, ended.timeIntervalSince(started))
-                            instance.currentSpeed = Double(delta) / duration
+                            instance.currentSpeed = clampSpeed(Double(delta) / duration)
                         }
                     }
                 }
@@ -3239,9 +3256,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch type {
         case .antigravity:
             return parseAntigravityTail(url: url, fileModDate: fileModDate)
-        case .qoder:
-            return (parseQoderLatestSpeed(url: url, fileModDate: fileModDate), nil)
-        case .pi, .claude, .codex, .deepseek:
+        case .qoder, .pi, .claude, .codex, .deepseek:
             return (0.0, nil) // speed is computed while incrementally scanning events
         }
     }
@@ -3300,69 +3315,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let inFlight = lastStatus == "RUNNING"
             || lastType == "GENERIC"
             || lastType == "USER_INPUT"
-        return (latestSpeed, inFlight)
+        return (clampSpeed(latestSpeed), inFlight)
     }
-    
-    func parseQoderLatestSpeed(url: URL, fileModDate: Date) -> Double {
-        guard let content = readTail(url: url) else { return 0.0 }
-        
-        let rawLines = content.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        let lines: [String]
-        if rawLines.count > 1 && !rawLines[0].hasPrefix("{") {
-            lines = Array(rawLines.dropFirst())
-        } else {
-            lines = rawLines
-        }
-        
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let backupFormatter = ISO8601DateFormatter()
-        backupFormatter.formatOptions = [.withInternetDateTime]
-        
-        func parseDate(_ s: String?) -> Date? {
-            guard let s = s else { return nil }
-            return isoFormatter.date(from: s) ?? backupFormatter.date(from: s)
-        }
-        
-        var turnTokens = 0
-        var turnStartDate: Date? = nil
-        var latestSpeed: Double = 0.0
-        
-        for line in lines {
-            guard let d = line.data(using: .utf8),
-                  let json = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { continue }
-            
-            let type = (json["type"] as? String) ?? ""
-            let tsStr = json["timestamp"] as? String
-            let date = parseDate(tsStr)
-            
-            if type == "user" {
-                turnStartDate = date
-                turnTokens = 0
-            } else if type == "assistant" {
-                let msg = json["message"] as? [String: Any]
-                var chars = 0
-                if let contents = msg?["content"] as? [[String: Any]] {
-                    for c in contents {
-                        let text = (c["text"] as? String) ?? (c["thinking"] as? String) ?? ""
-                        chars += text.count
-                    }
-                }
-                let tokens = max(1, Int(Double(chars) / 2.2))
-                turnTokens += tokens
-                
-                if let tEnd = date, let tStart = turnStartDate {
-                    let dur = max(0.5, tEnd.timeIntervalSince(tStart))
-                    if turnTokens > 30 {
-                        latestSpeed = Double(turnTokens) / dur
-                    }
-                }
-            }
-        }
-        
-        return latestSpeed
-    }
-    
+
     func triggerBackgroundUpdate() {
         if isChecking { return }
         isChecking = true
@@ -3388,8 +3343,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         updatedInstances[i].claudeRequestStartedAt = nil
                         updatedInstances[i].codexTaskStartedAt = nil
                         updatedInstances[i].codexLastTokenAt = nil
-                        updatedInstances[i].deepseekDecodeTokens = 0
-                        updatedInstances[i].deepseekDecodeMs = 0
+                        updatedInstances[i].qoderTurnStartedAt = nil
+                        updatedInstances[i].qoderTurnTokens = 0
                         updatedInstances[i].deepseekLastActivity = nil
                         if updatedInstances[i].type == .qoder {
                             updatedInstances[i].modelName = "Qoder"
@@ -3416,7 +3371,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         // 2. Parse latest speed
                         let probe = self.parseLatestSpeed(url: latest.url, fileModDate: latest.modDate, type: updatedInstances[i].type)
                         if probe.speed > 0 {
-                            updatedInstances[i].currentSpeed = probe.speed
+                            updatedInstances[i].currentSpeed = clampSpeed(probe.speed)
                         }
                         if let inFlight = probe.inFlight {
                             updatedInstances[i].antigravityStepInFlight = inFlight
@@ -3478,18 +3433,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let isConcurrent = generating.count > 1
         
         if isConcurrent {
-            let displaySpeed = generating.map(\.currentSpeed).max() ?? 0.0
+            let displaySpeed = generating.map { clampSpeed($0.currentSpeed) }.max() ?? 0.0
             statusItem.button?.title = displaySpeed > 0
                 ? String(format: "%.1f t/s", displaySpeed)
                 : "生成中"
         } else if let gen = generating.first {
-            statusItem.button?.title = gen.currentSpeed > 0
-                ? String(format: "%.1f t/s", gen.currentSpeed)
+            let speed = clampSpeed(gen.currentSpeed)
+            statusItem.button?.title = speed > 0
+                ? String(format: "%.1f t/s", speed)
                 : "生成中"
         } else {
-            let mostRecent = visibleInstances.max(by: { $0.latestModDate < $1.latestModDate })
-            let speed = mostRecent?.currentSpeed ?? 0.0
-            statusItem.button?.title = speed > 0 ? String(format: "%.1f t/s", speed) : "--"
+            statusItem.button?.title = "--"
         }
         
         let sortedInstances = visibleInstances
@@ -3497,8 +3451,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .sorted { lhs, rhs in
                 let l = lhs.element, r = rhs.element
                 if l.isGenerating != r.isGenerating { return l.isGenerating }
-                if l.isGenerating && l.currentSpeed != r.currentSpeed {
-                    return l.currentSpeed > r.currentSpeed
+                let lSpeed = clampSpeed(l.currentSpeed)
+                let rSpeed = clampSpeed(r.currentSpeed)
+                if l.isGenerating && lSpeed != rSpeed {
+                    return lSpeed > rSpeed
                 }
                 return lhs.offset < rhs.offset
             }
@@ -3535,8 +3491,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             instances[i].claudeRequestStartedAt = nil
             instances[i].codexTaskStartedAt = nil
             instances[i].codexLastTokenAt = nil
-            instances[i].deepseekDecodeTokens = 0
-            instances[i].deepseekDecodeMs = 0
+            instances[i].qoderTurnStartedAt = nil
+            instances[i].qoderTurnTokens = 0
             instances[i].deepseekLastActivity = nil
         }
         triggerBackgroundUpdate()
