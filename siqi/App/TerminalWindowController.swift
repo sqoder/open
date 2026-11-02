@@ -94,7 +94,6 @@ public final class SiqiTerminalWindow: NSWindow {
         }
         if let content = contentView {
             content.wantsLayer = true
-            content.layer?.backgroundColor = NSColor.clear.cgColor
             content.layer?.cornerRadius = actualRadius
             content.layer?.cornerCurve = .continuous
             content.layer?.masksToBounds = !isFull
@@ -184,10 +183,8 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
     private var eventMonitor: Any?
 
     public static func applyWindowBlur(window: NSWindow, radius: Int32) {
-        // Clear WindowServer rectangular blur to prevent private convolution shader halos from bleeding around squircle corners.
-        // Frosted glass blur is handled cleanly and natively by NSVisualEffectView in ContentView.
         if let conn = CGSDefaultConnectionForThread() {
-            _ = CGSSetWindowBackgroundBlurRadius(conn, window.windowNumber, 0)
+            _ = CGSSetWindowBackgroundBlurRadius(conn, window.windowNumber, radius)
         }
     }
 
@@ -274,7 +271,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         let contentView = ContentView(model: model)
         let hostingView = SiqiHostingView(rootView: contentView)
         hostingView.wantsLayer = true
-        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.backgroundColor = targetBg.cgColor
         hostingView.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
         hostingView.layer?.cornerCurve = .continuous
         hostingView.layer?.masksToBounds = true
@@ -445,7 +442,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
             termWin.updateCornerRadius()
         }
         window.contentView?.wantsLayer = true
-        window.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+        window.contentView?.layer?.backgroundColor = targetBg.cgColor
         window.contentView?.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
         window.contentView?.layer?.cornerCurve = .continuous
         window.contentView?.layer?.masksToBounds = true

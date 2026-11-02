@@ -212,7 +212,7 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.contentView?.wantsLayer = true
-        panel.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+        panel.contentView?.layer?.backgroundColor = targetBg.cgColor
         panel.contentView?.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
         panel.contentView?.layer?.cornerCurve = .continuous
         panel.contentView?.layer?.masksToBounds = true
