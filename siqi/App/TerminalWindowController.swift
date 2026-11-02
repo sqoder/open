@@ -83,20 +83,11 @@ public final class SiqiTerminalWindow: NSWindow {
     }
 
     public func updateCornerRadius() {
-        let isFull = styleMask.contains(.fullScreen)
-        let actualRadius: CGFloat = isFull ? 0 : cornerRadius
-        if let themeFrame = contentView?.superview {
-            themeFrame.wantsLayer = true
-            themeFrame.layer?.backgroundColor = NSColor.clear.cgColor
-            themeFrame.layer?.cornerRadius = actualRadius
-            themeFrame.layer?.cornerCurve = .continuous
-            themeFrame.layer?.masksToBounds = !isFull
-        }
         if let content = contentView {
             content.wantsLayer = true
-            content.layer?.cornerRadius = actualRadius
-            content.layer?.cornerCurve = .continuous
-            content.layer?.masksToBounds = !isFull
+            content.layer?.backgroundColor = NSColor.clear.cgColor
+            content.layer?.cornerRadius = 0
+            content.layer?.masksToBounds = false
         }
         cleanTitlebarDecorations()
         invalidateShadow()
@@ -253,8 +244,8 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         window.isMovableByWindowBackground = false
         let baseBg = SiqiTheme.nsBackgroundColor(for: userConfig.themeName, customBackground: userConfig.background)
         let targetBg = isTranslucent ? baseBg.withAlphaComponent(CGFloat(userConfig.backgroundOpacity)) : baseBg
-        window.isOpaque = false
-        window.backgroundColor = .clear
+        window.isOpaque = !isTranslucent
+        window.backgroundColor = targetBg
         let blurRadius = userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 0
         Self.applyWindowBlur(window: window, radius: blurRadius)
         window.cornerRadius = CGFloat(userConfig.windowCornerRadius)
@@ -271,10 +262,9 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         let contentView = ContentView(model: model)
         let hostingView = SiqiHostingView(rootView: contentView)
         hostingView.wantsLayer = true
-        hostingView.layer?.backgroundColor = targetBg.cgColor
-        hostingView.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
-        hostingView.layer?.cornerCurve = .continuous
-        hostingView.layer?.masksToBounds = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.cornerRadius = 0
+        hostingView.layer?.masksToBounds = false
         window.contentView = hostingView
         window.updateCornerRadius()
 
@@ -431,8 +421,8 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         let baseBg = SiqiTheme.nsBackgroundColor(for: userConfig.themeName, customBackground: userConfig.background)
         let targetBg = isTranslucent ? baseBg.withAlphaComponent(CGFloat(userConfig.backgroundOpacity)) : baseBg
 
-        window.isOpaque = false
-        window.backgroundColor = .clear
+        window.isOpaque = !isTranslucent
+        window.backgroundColor = targetBg
 
         let blurRadius = userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 0
         Self.applyWindowBlur(window: window, radius: blurRadius)
@@ -442,10 +432,9 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
             termWin.updateCornerRadius()
         }
         window.contentView?.wantsLayer = true
-        window.contentView?.layer?.backgroundColor = targetBg.cgColor
-        window.contentView?.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
-        window.contentView?.layer?.cornerCurve = .continuous
-        window.contentView?.layer?.masksToBounds = true
+        window.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+        window.contentView?.layer?.cornerRadius = 0
+        window.contentView?.layer?.masksToBounds = false
         window.invalidateShadow()
     }
 

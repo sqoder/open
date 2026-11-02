@@ -120,8 +120,7 @@ public struct ContentView: View {
             }
         }
         .frame(minWidth: 80, minHeight: 32)
-        .background(isTranslucent ? Color.clear : themeBg)
-        .clipShape(RoundedRectangle(cornerRadius: CGFloat(userConfig.windowCornerRadius), style: .continuous))
+        .background(Color.clear)
         .ignoresSafeArea()
         .transaction { $0.animation = nil }
         // Support dragging files from Finder and text directly into terminal window

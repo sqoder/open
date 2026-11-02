@@ -53,6 +53,8 @@ public struct SiqiUserConfig: Sendable {
     public var quickTerminalAnimationDuration: Double = 0.2
     public var quickTerminalSize: String = "50%"
 
+    public init() {}
+
     /// Parses a Ghostty-style `keybind = cmd+shift+e=new_tab` value
     public static func parseKeybinding(_ value: String) -> SiqiKeybinding? {
         guard let separator = value.lastIndex(of: "=") else { return nil }
@@ -79,39 +81,7 @@ public struct SiqiUserConfig: Sendable {
     // load() is reachable from background callers, so the cache needs a lock.
     private static let cacheLock = NSLock()
 
-    public static func load() -> (config: SiqiUserConfig, filePath: String?) {
-        let siqiPath = NSString(string: "~/.config/siqi/config").expandingTildeInPath
-        let legacySuqiPath = NSString(string: "~/.config/suqi/config").expandingTildeInPath
-        let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
-
-        let targetPath: String? = {
-            if FileManager.default.fileExists(atPath: siqiPath) {
-                return siqiPath
-            } else if FileManager.default.fileExists(atPath: legacySuqiPath) {
-                return legacySuqiPath
-            } else if FileManager.default.fileExists(atPath: ghosttyPath) {
-                return ghosttyPath
-            }
-            return nil
-        }()
-
-        var cfg = SiqiUserConfig()
-        guard let path = targetPath,
-              let attrs = try? FileManager.default.attributesOfItem(atPath: path),
-              let mtime = attrs[.modificationDate] as? Date,
-              let size = attrs[.size] as? UInt64 else {
-            return (cfg, nil)
-        }
-        cacheLock.lock()
-        let cached = Self.cache
-        cacheLock.unlock()
-        if let cached, cached.filePath == path, cached.mtime == mtime, cached.size == size {
-            return (cached.config, path)
-        }
-        guard let content = try? String(contentsOfFile: path, encoding: .utf8) else {
-            return (cfg, nil)
-        }
-
+    public static func parse(content: String, into cfg: inout SiqiUserConfig) {
         for line in content.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
@@ -200,6 +170,48 @@ public struct SiqiUserConfig: Sendable {
                 break
             }
         }
+    }
+
+    public static func load(from content: String) -> (config: SiqiUserConfig, filePath: String?) {
+        var cfg = SiqiUserConfig()
+        parse(content: content, into: &cfg)
+        return (cfg, nil)
+    }
+
+    public static func load() -> (config: SiqiUserConfig, filePath: String?) {
+        let siqiPath = NSString(string: "~/.config/siqi/config").expandingTildeInPath
+        let legacySuqiPath = NSString(string: "~/.config/suqi/config").expandingTildeInPath
+        let ghosttyPath = NSString(string: "~/.config/ghostty/config").expandingTildeInPath
+
+        let targetPath: String? = {
+            if FileManager.default.fileExists(atPath: siqiPath) {
+                return siqiPath
+            } else if FileManager.default.fileExists(atPath: legacySuqiPath) {
+                return legacySuqiPath
+            } else if FileManager.default.fileExists(atPath: ghosttyPath) {
+                return ghosttyPath
+            }
+            return nil
+        }()
+
+        var cfg = SiqiUserConfig()
+        guard let path = targetPath,
+              let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+              let mtime = attrs[.modificationDate] as? Date,
+              let size = attrs[.size] as? UInt64 else {
+            return (cfg, nil)
+        }
+        cacheLock.lock()
+        let cached = Self.cache
+        cacheLock.unlock()
+        if let cached, cached.filePath == path, cached.mtime == mtime, cached.size == size {
+            return (cached.config, path)
+        }
+        guard let content = try? String(contentsOfFile: path, encoding: .utf8) else {
+            return (cfg, nil)
+        }
+
+        parse(content: content, into: &cfg)
 
         cacheLock.lock()
         Self.cache = (cfg, path, mtime, size)
