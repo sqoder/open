@@ -91,12 +91,6 @@ public final class SiqiTerminalWindow: NSWindow {
             themeFrame.layer?.cornerRadius = actualRadius
             themeFrame.layer?.cornerCurve = .continuous
             themeFrame.layer?.masksToBounds = !isFull
-            // Sync NSThemeFrame internal cached corner radius so AppKit window mask matches
-            themeFrame.setValue(actualRadius, forKey: "_cachedCornerRadius")
-            let sel = NSSelectorFromString("windowCornerMaskChanged")
-            if themeFrame.responds(to: sel) {
-                themeFrame.perform(sel)
-            }
         }
         if let content = contentView {
             content.wantsLayer = true
