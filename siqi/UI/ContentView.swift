@@ -60,6 +60,21 @@ public struct ContentView: View {
             let isMiniCapsule = windowHeight <= 36 || windowWidth < 120
 
             ZStack(alignment: .topLeading) {
+                // Background layer: native NSVisualEffectView blur when backgroundBlur > 0
+                if userConfig.backgroundBlur > 0 {
+                    VisualEffectBackground(material: .underWindowBackground, blendingMode: .behindWindow)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+
+                // Tinted theme background
+                if isTranslucent {
+                    themeBg.opacity(CGFloat(userConfig.backgroundOpacity))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    themeBg
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+
                 if isMiniCapsule {
                     // Mini compact state: window drag surface with traffic light buttons and expand button
                     ZStack(alignment: .trailing) {
@@ -120,7 +135,6 @@ public struct ContentView: View {
             }
         }
         .frame(minWidth: 80, minHeight: 32)
-        .background(isTranslucent ? Color.clear : themeBg)
         .clipShape(RoundedRectangle(cornerRadius: CGFloat(userConfig.windowCornerRadius), style: .continuous))
         .ignoresSafeArea()
         .transaction { $0.animation = nil }

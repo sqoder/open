@@ -87,24 +87,25 @@ public final class SiqiTerminalWindow: NSWindow {
         let actualRadius: CGFloat = isFull ? 0 : cornerRadius
         if let themeFrame = contentView?.superview {
             themeFrame.wantsLayer = true
+            themeFrame.layer?.backgroundColor = NSColor.clear.cgColor
             themeFrame.layer?.cornerRadius = actualRadius
             themeFrame.layer?.cornerCurve = .continuous
             themeFrame.layer?.masksToBounds = !isFull
-            // Clean system window frame layers (e.g. CUIWindowFrameLayer) that render hardcoded 10pt corner hairline outlines
-            for sl in themeFrame.layer?.sublayers ?? [] {
-                let slName = NSStringFromClass(type(of: sl))
-                if slName.contains("CUIWindowFrameLayer") || sl.name?.contains("WindowFrame") == true {
-                    sl.isHidden = true
-                    sl.opacity = 0
-                }
+            // Sync NSThemeFrame internal cached corner radius so AppKit window mask matches
+            themeFrame.setValue(actualRadius, forKey: "_cachedCornerRadius")
+            let sel = NSSelectorFromString("windowCornerMaskChanged")
+            if themeFrame.responds(to: sel) {
+                themeFrame.perform(sel)
             }
         }
         if let content = contentView {
             content.wantsLayer = true
+            content.layer?.backgroundColor = NSColor.clear.cgColor
             content.layer?.cornerRadius = actualRadius
             content.layer?.cornerCurve = .continuous
             content.layer?.masksToBounds = !isFull
         }
+        cleanTitlebarDecorations()
         invalidateShadow()
     }
 
@@ -142,32 +143,34 @@ public final class SiqiTerminalWindow: NSWindow {
 
     /// Native clean styling: hides redundant system titlebar background & decoration layers that cause double corner outlines
     public func cleanTitlebarDecorations() {
-        if let themeFrame = contentView?.superview {
-            for sl in themeFrame.layer?.sublayers ?? [] {
-                let slName = NSStringFromClass(type(of: sl))
-                if slName.contains("CUIWindowFrameLayer") || sl.name?.contains("WindowFrame") == true {
-                    sl.isHidden = true
-                    sl.opacity = 0
-                }
+        guard let themeFrame = contentView?.superview else { return }
+        themeFrame.layer?.backgroundColor = NSColor.clear.cgColor
+
+        func hideDecorations(in layer: CALayer?) {
+            guard let layer else { return }
+            let name = NSStringFromClass(type(of: layer))
+            if name.contains("CUIWindowFrameLayer") || layer.name?.contains("WindowFrame") == true || layer.name?.contains("Decoration") == true {
+                layer.isHidden = true
+                layer.opacity = 0
+            }
+            for sub in layer.sublayers ?? [] {
+                hideDecorations(in: sub)
             }
         }
 
-        guard let titlebarContainer = contentView?.superview?.subviews.first(where: {
-            NSStringFromClass(type(of: $0)).contains("NSTitlebarContainerView")
-        }) else { return }
-
-        for sub in titlebarContainer.subviews {
-            let subName = NSStringFromClass(type(of: sub))
-            if subName.contains("NSTitlebarBackgroundView") || subName.contains("_NSTitlebarDecorationView") {
-                sub.isHidden = true
+        func hideViews(in view: NSView?) {
+            guard let view else { return }
+            let name = NSStringFromClass(type(of: view))
+            if name.contains("TitlebarDecoration") || name.contains("NSTitlebarBackgroundView") {
+                view.isHidden = true
             }
-            for inner in sub.subviews {
-                let innerName = NSStringFromClass(type(of: inner))
-                if innerName.contains("NSTitlebarBackgroundView") || innerName.contains("NSVisualEffectView") {
-                    inner.isHidden = true
-                }
+            hideDecorations(in: view.layer)
+            for sub in view.subviews {
+                hideViews(in: sub)
             }
         }
+
+        hideViews(in: themeFrame)
     }
 }
 
@@ -187,8 +190,10 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
     private var eventMonitor: Any?
 
     public static func applyWindowBlur(window: NSWindow, radius: Int32) {
+        // Clear WindowServer rectangular blur to prevent private convolution shader halos from bleeding around squircle corners.
+        // Frosted glass blur is handled cleanly and natively by NSVisualEffectView in ContentView.
         if let conn = CGSDefaultConnectionForThread() {
-            _ = CGSSetWindowBackgroundBlurRadius(conn, window.windowNumber, radius)
+            _ = CGSSetWindowBackgroundBlurRadius(conn, window.windowNumber, 0)
         }
     }
 
@@ -275,7 +280,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         let contentView = ContentView(model: model)
         let hostingView = SiqiHostingView(rootView: contentView)
         hostingView.wantsLayer = true
-        hostingView.layer?.backgroundColor = targetBg.cgColor
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
         hostingView.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
         hostingView.layer?.cornerCurve = .continuous
         hostingView.layer?.masksToBounds = true
@@ -446,7 +451,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
             termWin.updateCornerRadius()
         }
         window.contentView?.wantsLayer = true
-        window.contentView?.layer?.backgroundColor = targetBg.cgColor
+        window.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
         window.contentView?.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
         window.contentView?.layer?.cornerCurve = .continuous
         window.contentView?.layer?.masksToBounds = true
