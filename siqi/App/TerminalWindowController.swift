@@ -48,7 +48,7 @@ public final class SiqiTerminalWindow: NSWindow {
         return rect
     }
 
-    public var cornerRadius: CGFloat = 28.0 {
+    public var cornerRadius: CGFloat = 16.0 {
         didSet {
             updateCornerRadius()
         }
@@ -115,10 +115,10 @@ public final class SiqiTerminalWindow: NSWindow {
             return
         }
 
-        // Modern macOS breathing room: offset traffic lights comfortably under the 28pt rounded corner (18pt from top, 18pt from left)
+        // Modern macOS breathing room: aligned comfortably with standard window corner (11pt from top, 14pt from left)
         let superHeight = container.frame.height
-        let targetY: CGFloat = max(0, superHeight - 14.0 - 18.0)
-        let targetStartX: CGFloat = 18.0
+        let targetY: CGFloat = max(0, superHeight - 14.0 - 11.0)
+        let targetStartX: CGFloat = 14.0
         let spacing: CGFloat = 20.0
 
         close.setFrameOrigin(NSPoint(x: targetStartX, y: targetY))
