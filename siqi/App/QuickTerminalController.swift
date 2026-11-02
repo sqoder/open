@@ -216,7 +216,7 @@ public final class QuickTerminalController: NSObject, ObservableObject, NSWindow
         panel.contentView?.layer?.cornerRadius = CGFloat(userConfig.windowCornerRadius)
         panel.contentView?.layer?.cornerCurve = .continuous
         panel.contentView?.layer?.masksToBounds = true
-        let blurRadius = isTranslucent ? (userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 20) : 0
+        let blurRadius = userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 0
         TerminalWindowController.applyWindowBlur(window: panel, radius: blurRadius)
         panel.invalidateShadow()
 

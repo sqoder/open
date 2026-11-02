@@ -259,7 +259,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         let targetBg = isTranslucent ? baseBg.withAlphaComponent(CGFloat(userConfig.backgroundOpacity)) : baseBg
         window.isOpaque = false
         window.backgroundColor = .clear
-        let blurRadius = isTranslucent ? (userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 20) : 0
+        let blurRadius = userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 0
         Self.applyWindowBlur(window: window, radius: blurRadius)
         window.cornerRadius = CGFloat(userConfig.windowCornerRadius)
         window.hasShadow = true
@@ -438,7 +438,7 @@ public final class TerminalWindowController: NSWindowController, NSWindowDelegat
         window.isOpaque = false
         window.backgroundColor = .clear
 
-        let blurRadius = isTranslucent ? (userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 20) : 0
+        let blurRadius = userConfig.backgroundBlur > 0 ? Int32(userConfig.backgroundBlur) : 0
         Self.applyWindowBlur(window: window, radius: blurRadius)
 
         if let termWin = window as? SiqiTerminalWindow {
