@@ -120,7 +120,7 @@ public struct ContentView: View {
             }
         }
         .frame(minWidth: 80, minHeight: 32)
-        .background(Color.clear)
+        .background(isTranslucent ? Color.clear : themeBg)
         .ignoresSafeArea()
         .transaction { $0.animation = nil }
         // Support dragging files from Finder and text directly into terminal window
