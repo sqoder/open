@@ -12,10 +12,21 @@ import Combine
 import GhosttyTerminal
 import GhosttyTheme
 
-extension TerminalViewState: TerminalSurfaceOpenURLDelegate {
+private var hoverLinkCallbackKey: UInt8 = 0
+
+extension TerminalViewState: TerminalSurfaceOpenURLDelegate, TerminalSurfaceHoverLinkDelegate {
+    public var onHoverLink: ((String?) -> Void)? {
+        get { objc_getAssociatedObject(self, &hoverLinkCallbackKey) as? (String?) -> Void }
+        set { objc_setAssociatedObject(self, &hoverLinkCallbackKey, newValue, .OBJC_ASSOCIATION_COPY_NONATOMIC) }
+    }
+
     public func terminalDidRequestOpenURL(_ url: String, kind: TerminalOpenURLKind) {
         guard let target = TerminalLinkResolver.resolve(url, workingDirectory: workingDirectory) else { return }
         NSWorkspace.shared.open(target)
+    }
+
+    public func terminalDidUpdateHoverLink(_ url: String?) {
+        onHoverLink?(url)
     }
 }
 
@@ -26,6 +37,7 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
 
     @Published public private(set) var state: TerminalViewState
     @Published public var customTitle: String?
+    @Published public var hoveredDisplayPath: String?
     public var initialWorkingDirectory: String
     public var onFocused: (() -> Void)?
     public var onClosed: (() -> Void)?
@@ -66,6 +78,20 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
         state.onClose = { [weak self] _ in
             guard let self else { return }
             self.onClosed?()
+        }
+
+        state.onHoverLink = { [weak self] rawUrl in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if let rawUrl, !rawUrl.isEmpty {
+                    let display = TerminalLinkResolver.resolveDisplayPath(rawUrl, workingDirectory: self.fullDirectory)
+                    self.hoveredDisplayPath = display
+                    self.terminalView.toolTip = display
+                } else {
+                    self.hoveredDisplayPath = nil
+                    self.terminalView.toolTip = nil
+                }
+            }
         }
 
         state.$isFocused
@@ -296,6 +322,9 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
     public func tearDown() {
         cwdMonitorTimer?.invalidate()
         cwdMonitorTimer = nil
+        state.onHoverLink = nil
+        hoveredDisplayPath = nil
+        terminalView.toolTip = nil
         SiqiDirectoryManager.saveLastWorkingDirectory(fullDirectory)
         cancellables.removeAll()
         onFocused = nil
@@ -312,6 +341,9 @@ public final class SiqiTerminalSession: ObservableObject, Identifiable, Equatabl
     public func restart() {
         let currentCwd = state.workingDirectory ?? initialWorkingDirectory
         state.onClose = nil
+        state.onHoverLink = nil
+        hoveredDisplayPath = nil
+        terminalView.toolTip = nil
         self.state = Self.buildTerminalViewState(workingDirectory: currentCwd)
         terminalView.delegate = state
         terminalView.controller = state.controller

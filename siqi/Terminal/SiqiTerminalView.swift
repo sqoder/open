@@ -49,7 +49,7 @@ public struct SiqiTerminalView: View {
     }
 
     public var body: some View {
-        ZStack(alignment: .trailing) {
+        ZStack(alignment: .bottomLeading) {
             PersistentTerminalSurfaceView(session: session)
                 .id(session.id)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -57,6 +57,7 @@ public struct SiqiTerminalView: View {
 
             // Minimalist scrollbar (clean #9D9FA2 thumb, hidden by default, fades in during scrolling)
             TerminalScrollbarView(session: session)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
 
             // Smooth dimming overlay for unfocused split pane (unfocused-split-opacity)
             if isMultiPane && !isActivePane {
@@ -69,7 +70,34 @@ public struct SiqiTerminalView: View {
                 }
             }
 
-
+            // Hover Link Path Preview overlay (status pill)
+            if let path = session.hoveredDisplayPath, !path.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: path.lowercased().hasPrefix("http") ? "link" : "doc.text")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.80))
+                    Text(path)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.white.opacity(0.95))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color(red: 24/255.0, green: 26/255.0, blue: 32/255.0).opacity(0.95))
+                        .shadow(color: Color.black.opacity(0.40), radius: 6, x: 0, y: 2)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.75)
+                )
+                .padding(.leading, 12)
+                .padding(.bottom, 8)
+                .allowsHitTesting(false)
+                .transition(.opacity)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {

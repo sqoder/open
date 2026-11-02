@@ -48,7 +48,7 @@ public final class SiqiTerminalWindow: NSWindow {
         return rect
     }
 
-    public var cornerRadius: CGFloat = 18.0 {
+    public var cornerRadius: CGFloat = 28.0 {
         didSet {
             updateCornerRadius()
         }
@@ -90,6 +90,14 @@ public final class SiqiTerminalWindow: NSWindow {
             themeFrame.layer?.cornerRadius = actualRadius
             themeFrame.layer?.cornerCurve = .continuous
             themeFrame.layer?.masksToBounds = !isFull
+            // Clean system window frame layers (e.g. CUIWindowFrameLayer) that render hardcoded 10pt corner hairline outlines
+            for sl in themeFrame.layer?.sublayers ?? [] {
+                let slName = NSStringFromClass(type(of: sl))
+                if slName.contains("CUIWindowFrameLayer") || sl.name?.contains("WindowFrame") == true {
+                    sl.isHidden = true
+                    sl.opacity = 0
+                }
+            }
         }
         if let content = contentView {
             content.wantsLayer = true
@@ -134,6 +142,16 @@ public final class SiqiTerminalWindow: NSWindow {
 
     /// Native clean styling: hides redundant system titlebar background & decoration layers that cause double corner outlines
     public func cleanTitlebarDecorations() {
+        if let themeFrame = contentView?.superview {
+            for sl in themeFrame.layer?.sublayers ?? [] {
+                let slName = NSStringFromClass(type(of: sl))
+                if slName.contains("CUIWindowFrameLayer") || sl.name?.contains("WindowFrame") == true {
+                    sl.isHidden = true
+                    sl.opacity = 0
+                }
+            }
+        }
+
         guard let titlebarContainer = contentView?.superview?.subviews.first(where: {
             NSStringFromClass(type(of: $0)).contains("NSTitlebarContainerView")
         }) else { return }

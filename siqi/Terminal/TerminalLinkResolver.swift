@@ -7,7 +7,14 @@ enum TerminalLinkResolver {
 
         if let url = URL(string: target), let scheme = url.scheme?.lowercased() {
             if scheme == "file" {
-                return FileManager.default.fileExists(atPath: url.path) ? url : nil
+                let path = url.path
+                if FileManager.default.fileExists(atPath: path) {
+                    return URL(fileURLWithPath: path)
+                }
+                if let decoded = path.removingPercentEncoding, FileManager.default.fileExists(atPath: decoded) {
+                    return URL(fileURLWithPath: decoded)
+                }
+                return nil
             }
             return url
         }
@@ -23,6 +30,57 @@ enum TerminalLinkResolver {
             return nil
         }
 
-        return FileManager.default.fileExists(atPath: path) ? URL(fileURLWithPath: path) : nil
+        if FileManager.default.fileExists(atPath: path) {
+            return URL(fileURLWithPath: path)
+        }
+
+        // Smart fallback: check common subfolders if target is a simple filename or relative path
+        if let workingDirectory, !workingDirectory.isEmpty, !target.hasPrefix("/") {
+            let candidates = ["docs", "docx", "doc", "src", "tests", "test"]
+            for folder in candidates {
+                let candidatePath = URL(fileURLWithPath: workingDirectory)
+                    .appendingPathComponent(folder)
+                    .appendingPathComponent(target).path
+                if FileManager.default.fileExists(atPath: candidatePath) {
+                    return URL(fileURLWithPath: candidatePath)
+                }
+            }
+        }
+
+        return nil
+    }
+
+    static func resolveDisplayPath(_ raw: String, workingDirectory: String?) -> String {
+        let target = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !target.isEmpty else { return "" }
+
+        if let resolvedUrl = resolve(target, workingDirectory: workingDirectory) {
+            if resolvedUrl.isFileURL {
+                return resolvedUrl.path
+            } else {
+                return resolvedUrl.absoluteString
+            }
+        }
+
+        if target.lowercased().hasPrefix("file://") {
+            if let url = URL(string: target) {
+                return url.path
+            }
+            return String(target.dropFirst("file://".count))
+        }
+
+        if target.lowercased().hasPrefix("http://") || target.lowercased().hasPrefix("https://") {
+            return target
+        }
+
+        if target.hasPrefix("/") {
+            return target
+        } else if target.hasPrefix("~/") {
+            return NSString(string: target).expandingTildeInPath
+        } else if let workingDirectory, !workingDirectory.isEmpty {
+            return URL(fileURLWithPath: workingDirectory).appendingPathComponent(target).path
+        }
+
+        return target
     }
 }
