@@ -14,6 +14,16 @@ struct SiqiApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var secureInputEnabled = IsSecureEventInputEnabled()
 
+    init() {
+        // Strip any multiplexer session environment inherited from the launching shell (e.g. HERDR_*, TMUX, STY)
+        // so new terminal windows and tabs always start with a clean top-level shell environment.
+        for key in ProcessInfo.processInfo.environment.keys {
+            if key.hasPrefix("HERDR_") || key == "TMUX" || key == "STY" || key == "WINDOW" {
+                unsetenv(key)
+            }
+        }
+    }
+
     var body: some Scene {
         Settings {
             SettingsView()

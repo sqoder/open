@@ -10,6 +10,14 @@ import GhosttyTerminal
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
+    public func applicationWillFinishLaunching(_ notification: Notification) {
+        for key in ProcessInfo.processInfo.environment.keys {
+            if key.hasPrefix("HERDR_") || key == "TMUX" || key == "STY" || key == "WINDOW" {
+                unsetenv(key)
+            }
+        }
+    }
+
     public func applicationDidFinishLaunching(_ notification: Notification) {
         _ = AppTerminalView.enableContextMenuPipeline
         _ = AppTerminalView.enableDragAndDropPipeline
